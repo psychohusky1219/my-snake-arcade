@@ -1,0 +1,8 @@
+Current package checks: 18 native engine tests passed on Linux/Swift 6.2.1.
+Browser Play/Pause/Resume/Restart/X and mobile layout passed in Chromium.
+JavaScript, bash, plist and JSON structural checks passed.
+
+Not performed: Xcode/Apple SDK compilation, iPhone Simulator/device launch,
+signing, IPA generation, GitHub workflow run, Windows publisher execution,
+App Store submission, or live HTTPS offline service-worker validation.
+See ../docs/VALIDATION.json.

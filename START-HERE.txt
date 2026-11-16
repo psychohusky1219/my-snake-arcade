@@ -1,0 +1,36 @@
+MY SNAKE - WEB PUBLISHED + NATIVE GITHUB BUILD SETUP
+
+PLAY IN YOUR BROWSER NOW:
+https://my-snake-arcade.vercel.app/
+
+The web game is already published. The ZIP is not needed just to play.
+
+START THE NATIVE IPHONE BUILD FROM WINDOWS:
+1. Right-click this ZIP and choose Extract All. Open the extracted folder.
+2. Review README.md and double-click Publish-GitHub.cmd.
+3. Confirm PUBLIC source publishing. The script offers to install Git/GitHub CLI
+   only if missing, and opens GitHub's official browser sign-in.
+4. Confirm your GitHub account. It creates a NEW my-snake-arcade repository and
+   pushes the included files. It never overwrites an existing repository.
+5. The Actions page opens. After the build succeeds, use the repository's
+   Releases page to download MySnake-unsigned.ipa and INSTALL-WINDOWS.md.
+
+The GitHub repository and cloud build have NOT been created or run by this ZIP.
+They are created only when you approve and run the Windows publisher.
+No Apple passwords, signing certificates, or paid accounts are needed for the build.
+Native installation still requires signing the IPA for your iPhone.
+
+SOURCE VISIBILITY:
+The script creates a PUBLIC repository to use standard public macOS compute
+without build-minute charges. Everyone can view/download this game source.
+No broad open-source license is added; publishing does not itself grant one.
+
+APP STORE:
+This is not an App Store submission. Apple's Developer Program normally costs
+US$99/year. The public website is the fully published free route.
+
+Vercel hosting: Hobby, with personal/noncommercial usage limits.
+GitHub build: standard macos-15 only, skips private repos, no caches/artifact storage.
+Build binaries: public GitHub prerelease assets, unsigned.
+
+Browser and native app scores are local and separate.

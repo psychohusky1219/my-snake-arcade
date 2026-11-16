@@ -1,0 +1,21 @@
+# Never publish signing credentials, build products, or local configuration.
+.DS_Store
+Thumbs.db
+.build/
+build/
+dist/
+DerivedData/
+*.ipa
+*.xcarchive
+*.dSYM/
+*.xcuserstate
+xcuserdata/
+*.p12
+*.p8
+*.mobileprovision
+*.key
+.env
+.env.*
+!.env.example
+.vercel/
+*.log

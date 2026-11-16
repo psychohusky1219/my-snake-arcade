@@ -1,0 +1,10 @@
+NATIVE IPHONE SOURCE
+
+Windows/no Mac: use the Publish-GitHub.cmd in this package's ROOT folder.
+It creates the public repository and starts the included macOS build after approval.
+See ../START-HERE.txt and ../docs/INSTALL-WINDOWS.md.
+
+Mac: open MySnake.xcodeproj in Xcode, select your signing team, connect your iPhone,
+and build/run. This is source, not a pre-signed installer.
+
+No cloud build or Apple code signing has been performed in this delivery.

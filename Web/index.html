@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#081820">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="My Snake">
+<meta name="description" content="A free Snake arcade game with offline support, swipe controls, wall wrap, and special rat bonuses.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="icon" type="image/png" href="./icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<title>My Snake — Arcade</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1922;--ink:#edf8ec;--muted:#a7bbc0;--mint:#b9f57b;--blue:#243c48;--line:#36525e;--red:#ff6571}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:none;background:#08151e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none}
+button{color:inherit;font:inherit;border:0;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+button:active{transform:scale(.96)}button:focus-visible{outline:3px solid #e5ffae;outline-offset:3px}
+#app,#menu,#game{position:fixed;inset:0;width:100%;height:100%;height:100dvh;overflow:hidden}
+#app{background:radial-gradient(ellipse 75% 53% at 50% 16%,#203d3d 0%,transparent 75%),linear-gradient(145deg,#0a1821,#0d1c26 52%,#08131d)}
+#menu{display:flex;align-items:center;justify-content:center;padding:20px;padding-top:calc(env(safe-area-inset-top) + 20px);padding-bottom:calc(env(safe-area-inset-bottom) + 20px);z-index:4}
+#menu.hidden{display:none}
+.menu-card{width:100%;max-width:420px;padding:27px 22px 24px;text-align:center;border:1px solid #466259;border-radius:27px;background:linear-gradient(145deg,#172d35ed,#0c1d26f2);box-shadow:0 16px 65px #0009}
+.logo{font-size:66px;filter:drop-shadow(0 5px 12px #8dfe7240);margin:0 0 6px}
+.kicker{font-size:10px;letter-spacing:3.2px;font-weight:900;color:#b9f57b;margin-top:4px}
+h1{font-size:clamp(35px,9vw,51px);margin:7px 0 5px;line-height:1.05;font-weight:950;letter-spacing:-2px}
+h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;margin:13px auto 24px;max-width:315px}
+.play{display:block;margin:0 auto;background:var(--mint);color:#10271d;border-radius:14px;padding:16px 24px;font-size:16px;font-weight:900;width:100%;max-width:270px;box-shadow:0 8px 27px #b9f57b22}
+.legend{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:21px 0 14px}
+.legend span{background:#27414a;border:1px solid #3a5960;padding:8px 10px;border-radius:11px;font-size:12px;font-weight:750}
+.install-note{font-size:10px;color:#94b5b3;line-height:1.6;margin-top:12px}.private{font-size:11px;color:#94b5b3;letter-spacing:.2px;margin-top:16px}
+#game{display:none;z-index:3;touch-action:none;overscroll-behavior:none;background:radial-gradient(ellipse at 50% 0%,#233f3e 0%,#101c25 47%,#08151e 100%)}
+#game.active{display:block}
+.shell{display:flex;flex-direction:column;height:100%;height:100dvh;max-width:690px;margin:auto;padding:calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 9px);gap:8px;min-height:0}
+.top{display:flex;align-items:center;justify-content:space-between;min-height:33px;gap:10px}
+.brand{font-size:18px;font-weight:950;letter-spacing:-.3px}.brand span{color:var(--mint)}
+.close{background:#263e47;border:1px solid #48626b;border-radius:10px;width:37px;height:35px;font-size:20px;display:grid;place-items:center;flex:none}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{padding:8px 6px 7px;background:#1f333c;border:1px solid #34535b;border-radius:12px;text-align:center;min-width:0}
+.stat-label{font-size:9px;font-weight:850;color:#aac1c2;letter-spacing:1.8px}
+.stat-val{font-weight:950;font-size:clamp(19px,5.5vw,27px);line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score-val{color:var(--mint)}.level-val{color:#ffcf82}
+.stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.field{position:relative;width:250px;height:250px;aspect-ratio:1;border:2px solid #4f885f;border-radius:13px;box-shadow:0 0 0 2px #143129,0 12px 38px #0006;overflow:hidden;touch-action:none;overscroll-behavior:contain;background:#0d1b24;flex:none}
+.field canvas{display:block;width:100%;height:100%;touch-action:none;overscroll-behavior:none}
+.overlay{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;background:#071620d9;backdrop-filter:blur(3px);padding:10px;text-align:center;z-index:5}
+.overlay.hidden{display:none}.overlay-emoji{font-size:43px}.overlay-title{font-size:25px;font-weight:950;margin:7px 0}.overlay-sub{font-size:13px;color:#afc3c6;margin:7px 0 20px}
+.primary{background:var(--mint);color:#15311d;padding:12px 23px;border-radius:12px;font-size:15px;font-weight:900}
+.info{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:#a9c0c5}
+#hint{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#wrap-status{color:#baf57b;white-space:nowrap}
+.controls{display:grid;grid-template-columns:1fr auto 1fr;gap:7px;align-items:center;min-height:109px}
+.action{background:#273e49;border:1px solid #45626d;padding:11px 8px;border-radius:11px;max-width:106px;width:100%;font-weight:800;font-size:12px;text-align:center;justify-self:center}
+.pad{display:flex;flex-direction:column;align-items:center;gap:5px}
+.pad-row{display:flex;gap:5px}
+.arrow{display:grid;place-items:center;background:#2b4952;border:1px solid #53717a;border-radius:12px;width:clamp(51px,17vw,67px);height:clamp(43px,12vw,51px);font-size:27px;font-weight:900;line-height:1}
+.arrow:active{background:#4b8167}
+.footer{text-align:center;font-size:10px;color:#8ba7af;min-height:13px}
+.toast{position:absolute;top:calc(env(safe-area-inset-top) + 54px);left:50%;transform:translateX(-50%) translateY(-8px);opacity:0;pointer-events:none;z-index:8;background:#d0fa9c;color:#173425;padding:9px 15px;border-radius:20px;white-space:nowrap;font-size:13px;font-weight:900;transition:opacity .2s,transform .2s;box-shadow:0 7px 28px #0006}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-height:650px){.shell{gap:5px}.controls{min-height:95px}.arrow{height:38px;width:50px}.stat{padding:5px 6px}.footer{display:none}.top{min-height:28px}}
+@media(max-height:510px){.controls{min-height:78px}.arrow{height:31px;width:44px;font-size:22px}.info{display:none}}
+@media(orientation:landscape) and (max-height:600px){
+.menu-card{max-width:720px;padding:12px 20px;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:center}.logo{font-size:36px;grid-column:1}.kicker{grid-column:1}h1{grid-column:1;font-size:35px}.sub{grid-column:1;font-size:12px;margin:8px}.play{grid-column:2;grid-row:1 / span 3}.legend{grid-column:2;grid-row:4;margin:0;gap:5px}.legend span{font-size:10px;padding:6px}.private{grid-column:1 / span 2;margin-top:8px}.install-note{grid-column:1 / span 2;margin-top:4px}
+.shell{max-width:980px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.9fr);grid-template-rows:36px 56px 1fr auto;gap:6px 16px;padding-left:calc(env(safe-area-inset-left) + 14px);padding-right:calc(env(safe-area-inset-right) + 14px)}.stage{grid-column:1;grid-row:1 / -1}.top{grid-column:2;grid-row:1}.stats{grid-column:2;grid-row:2}.controls{grid-column:2;grid-row:3;min-height:0}.info{grid-column:2;grid-row:4;display:flex;font-size:10px}.footer{display:none}.arrow{width:48px;height:39px}.action{font-size:11px;padding:10px 4px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+ <section id="menu" aria-label="Snake game home">
+  <div class="menu-card">
+   <div class="logo" aria-hidden="true">🐍</div>
+   <div class="kicker">MY SNAKE ARCADE</div>
+   <h1>SNAKE<span>.</span></h1>
+   <p class="sub">One apple. One level up. Faster every point.<br>Catch a rare rat to multiply your score by <strong style="color:#baf57b">5×</strong>.</p>
+   <button class="play" id="play">TAP TO PLAY ⛶</button>
+   <div class="legend"><span>🍎 +1 point</span><span>🐀 Score ×5</span><span>↔ Through walls</span></div>
+   <div class="private">Free to play · No ads · Scores stay on your device</div>
+   <div class="install-note">On iPhone: open in Safari, then Share → Add to Home Screen.<br><span id="offline-status">Preparing offline play…</span></div>
+  </div>
+ </section>
+ <section id="game" aria-label="Snake arcade">
+  <div class="shell">
+   <div class="top"><div class="brand">🐍 SNAKE<span>.</span></div><button id="close" class="close" aria-label="Exit game">×</button></div>
+   <div class="stats">
+    <div class="stat"><div class="stat-label">SCORE</div><div class="stat-val score-val" id="score">0</div></div>
+    <div class="stat"><div class="stat-label">LEVEL</div><div class="stat-val level-val" id="level">1</div></div>
+    <div class="stat"><div class="stat-label">BEST</div><div class="stat-val" id="best">0</div></div>
+   </div>
+   <div class="stage" id="stage"><div class="field" id="field">
+    <canvas id="canvas" width="480" height="480" role="img" aria-label="Snake playfield"></canvas>
+    <div class="overlay hidden" id="overlay"><div><div class="overlay-emoji" id="overlay-emoji">⏸</div><div class="overlay-title" id="overlay-title">Paused</div><div class="overlay-sub" id="overlay-sub">Ready?</div><button class="primary" id="overlay-button">Resume ▶</button></div></div>
+   </div></div>
+   <div class="info"><div id="hint">Swipe or use arrows</div><div id="wrap-status">↔ Wall wrap ON</div></div>
+   <div class="controls">
+    <button class="action" id="pause">Pause ⏸</button>
+    <div class="pad" aria-label="Direction controls">
+     <button class="arrow" data-dir="up" aria-label="Up">↑</button>
+     <div class="pad-row">
+      <button class="arrow" data-dir="left" aria-label="Left">←</button>
+      <button class="arrow" data-dir="down" aria-label="Down">↓</button>
+      <button class="arrow" data-dir="right" aria-label="Right">→</button>
+     </div>
+    </div>
+    <button class="action" id="restart">Restart ↻</button>
+   </div>
+   <div class="footer">🐀 Rare rat bonus lasts 8 seconds · Tap × to exit</div>
+  </div>
+  <div class="toast" id="toast">🐀 RAT! Score ×5</div>
+ </section>
+</div>
+<script>
+(()=>{
+'use strict';
+const get=id=>document.getElementById(id);
+const menu=get('menu'),game=get('game'),field=get('field'),stage=get('stage'),canvas=get('canvas'),ctx=canvas.getContext('2d');
+const COUNT=24,CELL=20; // canvas 480 × 480
+const direction={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+let snake=[],food=null,heading=direction.right,turns=[],score=0n,level=1n,best=0n,apples=0,sinceRat=0,mode='menu',timeout=null,lastTime=0,ratRemaining=0,fullscreenRequested=false,toastTimer=null;
+try{const saved=localStorage.getItem('my-private-snake-best-v1')||'0';if(/^\d+$/.test(saved))best=BigInt(saved)}catch(_){}
+get('best').textContent=best;
+function rand(max){return Math.floor(Math.random()*max)}
+function place(type='apple'){
+ const free=[];
+ for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++)if(!snake.some(p=>p.x===x&&p.y===y))free.push({x,y});
+ if(!free.length)return null;
+ return {...free[rand(free.length)],type};
+}
+function millis(){return Math.max(53,Math.round(210/(1+Number(score>1000n?1000n:score)*.055)))}
+function update(){
+ get('score').textContent=score;get('level').textContent=level;get('best').textContent=best;
+ if(food&&food.type==='rat')get('hint').textContent='🐀 Rat bonus! '+Math.ceil(ratRemaining/1000)+'s left · Score ×5';
+ else get('hint').textContent='⚡ '+(1000/millis()).toFixed(1)+' moves/sec · Swipe or use arrows';
+}
+function rectangle(x,y,w,h,r,color){
+ r=Math.min(r,w/2,h/2);ctx.fillStyle=color;ctx.beginPath();
+ ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+ ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+ ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+ ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();
+}
+function render(){
+ ctx.fillStyle='#0d1c25';ctx.fillRect(0,0,480,480);
+ ctx.strokeStyle='#1c323b';ctx.lineWidth=.6;ctx.beginPath();
+ for(let i=1;i<COUNT;i++){const p=i*CELL+.5;ctx.moveTo(p,0);ctx.lineTo(p,480);ctx.moveTo(0,p);ctx.lineTo(480,p)}ctx.stroke();
+ if(food){
+  const x=food.x*CELL+10,y=food.y*CELL+10;
+  ctx.shadowBlur=13;
+  if(food.type==='rat'){
+    ctx.shadowColor='#ffd58a';
+    ctx.font='19px "Apple Color Emoji","Segoe UI Emoji",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🐀',x,y+1);ctx.shadowBlur=0;
+    ctx.strokeStyle='#ffd98b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,9,-Math.PI/2,-Math.PI/2+Math.PI*2*(ratRemaining/8000));ctx.stroke();
+  }else{
+    ctx.shadowColor='#ff6372';ctx.fillStyle='#ff5d70';ctx.beginPath();ctx.arc(x,y+1,7,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle='#baf28e';ctx.beginPath();ctx.ellipse(x+3,y-7,3,1.8,-.65,0,Math.PI*2);ctx.fill();
+  }
+ }
+ snake.forEach((p,i)=>rectangle(p.x*CELL+1,p.y*CELL+1,18,18,i===0?6:5,i===0?'#e0ffac':i%2?'#86d16e':'#a2e879'));
+ if(snake.length){
+  const h=snake[0],x=h.x*CELL,y=h.y*CELL;
+  const eyes=heading.x!==0?[[heading.x>0?14:6,5],[heading.x>0?14:6,14]]:[[5,heading.y>0?14:6],[14,heading.y>0?14:6]];
+  ctx.fillStyle='#23462e';eyes.forEach(p=>{ctx.beginPath();ctx.arc(x+p[0],y+p[1],1.9,0,Math.PI*2);ctx.fill()});
+ }
+}
+function resize(){
+ const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;
+ const dimension=Math.floor(Math.max(100,Math.min(w,h,650)));
+ field.style.width=dimension+'px';field.style.height=dimension+'px';
+}
+if('ResizeObserver' in window)new ResizeObserver(resize).observe(stage);
+window.addEventListener('resize',resize);
+function reset(){
+ snake=[{x:12,y:12},{x:11,y:12},{x:10,y:12}];heading=direction.right;turns=[];
+ score=0n;level=1n;apples=0;sinceRat=0;ratRemaining=0;food=place('apple');lastTime=performance.now();update();render();
+}
+function cancelTick(){if(timeout!==null){clearTimeout(timeout);timeout=null}}
+function schedule(){cancelTick();if(mode==='running')timeout=setTimeout(tick,millis())}
+function start(){
+ cancelTick();mode='running';reset();get('overlay').classList.add('hidden');schedule();
+}
+function announce(message){const el=get('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1600)}
+function over(win){
+ update();cancelTick();mode=win?'won':'over';
+ get('overlay-emoji').textContent=win?'🏆':'💥';get('overlay-title').textContent=win?'You win!':'Game over';
+ get('overlay-sub').textContent='Score: '+score+' · Level: '+level;
+ get('overlay-button').textContent='Play again ↻';get('overlay').classList.remove('hidden');
+}
+function nextFood(){
+ // Rare, spaced-out rats temporarily replace ordinary apples.
+ const ratAllowed=apples>=3&&sinceRat>=3;
+ const isRat=ratAllowed&&Math.random()<.22;
+ if(isRat){sinceRat=0;ratRemaining=8000;food=place('rat');announce('🐀 RARE RAT! Score ×5');}
+ else{food=place('apple');ratRemaining=0;}
+ if(!food){over(true);return false}
+ return true;
+}
+function tick(){
+ if(mode!=='running')return;
+ const now=performance.now(),dt=Math.max(0,Math.min(now-lastTime,1200));lastTime=now;
+ if(food&&food.type==='rat'){
+  ratRemaining-=dt;
+  if(ratRemaining<=0){ratRemaining=0;food=place('apple');}
+ }
+ if(turns.length)heading=turns.shift();
+ const head={x:(snake[0].x+heading.x+COUNT)%COUNT,y:(snake[0].y+heading.y+COUNT)%COUNT};
+ const eating=food&&head.x===food.x&&head.y===food.y;
+ if((eating?snake:snake.slice(0,-1)).some(p=>p.x===head.x&&p.y===head.y)){over(false);return}
+ snake.unshift(head);
+ if(eating){
+  if(food.type==='rat'){
+   score*=5n;announce('🐀 RAT EATEN! ×5 SCORE!');ratRemaining=0;
+  }else{score+=1n;apples+=1;sinceRat+=1;}
+  level=score+1n;
+  if(score>best){best=score;try{localStorage.setItem('my-private-snake-best-v1',String(best))}catch(_){}}
+  if(!nextFood()){render();return}
+ }else snake.pop();
+ update();render();schedule();
+}
+function turn(name){
+ if(mode!=='running'||!direction[name])return;
+ const d=direction[name],last=turns.length?turns[turns.length-1]:heading;
+ if(turns.length<2&&(d.x!==last.x||d.y!==last.y)&&(d.x!==-last.x||d.y!==-last.y))turns.push(d);
+}
+function pause(){
+ if(mode==='running'){
+  mode='paused';cancelTick();
+  get('overlay-emoji').textContent='⏸';get('overlay-title').textContent='Paused';
+  get('overlay-sub').textContent='Your game is on hold';get('overlay-button').textContent='Resume ▶';
+  get('overlay').classList.remove('hidden');get('pause').textContent='Resume ▶';
+ }else if(mode==='paused'){
+  mode='running';lastTime=performance.now();get('overlay').classList.add('hidden');
+  get('pause').textContent='Pause ⏸';schedule();
+ }
+}
+async function enterFullscreen(){
+ // Browser-native fullscreen works in supporting browsers. iPhone Safari may
+ // disallow the API; the viewport-filling game remains playable regardless.
+ if(fullscreenRequested)return;
+ fullscreenRequested=true;
+ try{
+  if(document.documentElement.requestFullscreen){const request=document.documentElement.requestFullscreen({navigationUI:'hide'});if(request&&request.catch)request.catch(()=>{});}
+ }catch(_){}
+}
+function play(){
+ menu.classList.add('hidden');game.classList.add('active');
+ get('pause').textContent='Pause ⏸';
+ enterFullscreen();resize();start();
+}
+function closeGame(){
+ cancelTick();mode='menu';game.classList.remove('active');menu.classList.remove('hidden');
+ get('toast').classList.remove('show');
+ fullscreenRequested=false;
+ if(document.fullscreenElement){try{document.exitFullscreen()}catch(_){}}
+}
+get('play').addEventListener('click',play);
+get('close').addEventListener('click',closeGame);
+get('pause').addEventListener('click',()=>{if(mode==='running'||mode==='paused')pause();else start()});
+get('restart').addEventListener('click',()=>{get('pause').textContent='Pause ⏸';start()});
+get('overlay-button').addEventListener('click',()=>{if(mode==='paused')pause();else{get('pause').textContent='Pause ⏸';start()}});
+for(const b of document.querySelectorAll('[data-dir]')){b.addEventListener('pointerdown',e=>{e.preventDefault();turn(b.dataset.dir)});b.addEventListener('click',e=>{if(e.detail===0)turn(b.dataset.dir)})}
+let pointer=null,lastX=0,lastY=0;
+function steer(x,y){
+ if(pointer===null)return;
+ const dx=x-lastX,dy=y-lastY;
+ if(Math.max(Math.abs(dx),Math.abs(dy))<13)return;
+ turn(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));
+ lastX=x;lastY=y;
+}
+field.addEventListener('pointerdown',e=>{
+ if(e.target.closest('button'))return;
+ e.preventDefault();pointer=e.pointerId;lastX=e.clientX;lastY=e.clientY;
+ try{field.setPointerCapture(pointer)}catch(_){}
+});
+field.addEventListener('pointermove',e=>{if(pointer!==e.pointerId)return;e.preventDefault();steer(e.clientX,e.clientY)});
+field.addEventListener('pointerup',e=>{if(pointer===e.pointerId){steer(e.clientX,e.clientY);pointer=null}});
+field.addEventListener('pointercancel',()=>{pointer=null});
+// Prevent a swipe on the game board from moving the browser page.
+game.addEventListener('touchmove',e=>{if(e.cancelable)e.preventDefault()},{passive:false});
+window.addEventListener('keydown',e=>{
+ if(mode==='menu')return;
+ const keys={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',a:'left',s:'down',d:'right',W:'up',A:'left',S:'down',D:'right'};
+ if(keys[e.key]){e.preventDefault();turn(keys[e.key])}
+ if(e.code==='Space'){e.preventDefault();if(mode==='running'||mode==='paused')pause()}
+ if(e.key==='Escape'&&document.fullscreenElement){e.preventDefault();closeGame()}
+});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='running')pause()});
+// Some browsers exit native fullscreen on Escape/system gesture; this remains
+// allowed by OS/browser policy and cannot be overridden by a web game.
+reset();
+})();
+</script>
+<script>
+// Offline installation: all game assets are cached on first visit.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(() => navigator.serviceWorker.ready).then(() => {document.getElementById('offline-status').textContent='Offline ready on this browser';}).catch(() => {document.getElementById('offline-status').textContent='Online play ready';});
+  });
+}
+</script>
+</body>
+</html>

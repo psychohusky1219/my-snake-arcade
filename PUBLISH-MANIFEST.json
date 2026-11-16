@@ -1,0 +1,217 @@
+{
+  "format": 1,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "b891702d9fce6ce8310b0c4328185d0ffbeeed851c5a9b93ed84d5bf8b0c2dff"
+    },
+    {
+      "path": ".github/workflows/build-ios.yml",
+      "sha256": "08ecae22f493495a16b9fa6ff2c3a1a3671910de6827b7b305070c11527a3309"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "a9c3ee0ef553afaa40fcac9fe1a927ed14069cd7fe2c3a65155b8b4cce7bd101"
+    },
+    {
+      "path": "Publish-GitHub.cmd",
+      "sha256": "90fd1aaf8eb9f21d8f3ac095a2e28db7756524c68c5de30365cf7e51206e43f5"
+    },
+    {
+      "path": "Publish-GitHub.ps1",
+      "sha256": "99f97d00a4d660d65816f6edb97fc260c81656236a51eb13e8e8ef2e7b1cb10b"
+    },
+    {
+      "path": "README.md",
+      "sha256": "b433a5d09a8d761849011c2649541d6dee1479a8a78ccdca8a3af39907d6e7e2"
+    },
+    {
+      "path": "START-HERE.txt",
+      "sha256": "01ed7c4e202aa2626501c2a29d6bfaa0298a62ef8f1704b4e0f49f9878563c02"
+    },
+    {
+      "path": "Web/icons/icon-192.png",
+      "sha256": "35b37ecd30e87d34905f69e4b734dc5d7bc13c4db0e8c1d7a983535aabb5056d"
+    },
+    {
+      "path": "Web/index.html",
+      "sha256": "d7e265c3ea743ac3b5a5f9cffc16c4bd37c1f7289a82186edb93fe04a5cf1f1b"
+    },
+    {
+      "path": "Web/manifest.webmanifest",
+      "sha256": "13ed1685368a1aba50c3f1a924c4936a3b2bca5853d26b2afb716065b3f50b2a"
+    },
+    {
+      "path": "Web/sw.js",
+      "sha256": "31eae8eca7b391abc78a783e0430e20278f734c879e6daba291ff4579f229671"
+    },
+    {
+      "path": "Web/vercel.json",
+      "sha256": "895c72660806c0d9c13f4f3ba1be80b89a832a4afb5c350cdbf588883850d202"
+    },
+    {
+      "path": "docs/INSTALL-WINDOWS.md",
+      "sha256": "c6b2bcbd200510741addbd7437cc1597ae2cc29793f2adbdf73f171f7d88eada"
+    },
+    {
+      "path": "docs/RELEASE-NOTES.md",
+      "sha256": "4bf996d804c8de4506772ffa85e74cb0d087a9cff9a33c9a3f2c4d32d5c48bed"
+    },
+    {
+      "path": "docs/VALIDATION.json",
+      "sha256": "afff51c9176709a425253d8b1d7b4ba2da0e5b851f9acb96de34ddc03aa44588"
+    },
+    {
+      "path": "iOS/.gitignore",
+      "sha256": "a2354599bb7564fc7c0a3b54ee74bf9890a2ebc32d469a3c6399e1cd6eb49c7c"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "sha256": "7b4799c989914aa85a455650127918da1014be6141b61a1b8a50d2621a4eb6c4"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ios-marketing-1024x1024@1x.png",
+      "sha256": "359f9c12e3f242424ed6dbef1b176f1e7aa4aba16a55008db00e64996023a73c"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ipad-20x20@1x.png",
+      "sha256": "9695d441c0b3e8c18e4381652e65fa985c103e1bad66909a3b38c0c4b7af3215"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ipad-20x20@2x.png",
+      "sha256": "bf01e6c6c4aab27276e42ef240a5cd4973afef8067f0faffb25b6ae8f428cdfe"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ipad-29x29@1x.png",
+      "sha256": "f7aa97bf4162fbbf61c79e158ca65fbdaa7727832baf5c3e5485a356a02f5021"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ipad-29x29@2x.png",
+      "sha256": "e27055e4a842862cbe30b39afa79964ec4c3ab25454fb7ec1459dde8ea30e5b4"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ipad-40x40@1x.png",
+      "sha256": "bf01e6c6c4aab27276e42ef240a5cd4973afef8067f0faffb25b6ae8f428cdfe"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ipad-40x40@2x.png",
+      "sha256": "ecd1ae13e5dd7408dd62105c8d484ce28a49c7ce86766b3fb0131766aef92131"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ipad-76x76@1x.png",
+      "sha256": "2fe7d560351aeecdb73391035e953348c60aef4183698ccabbe843cb47c7c2fe"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ipad-76x76@2x.png",
+      "sha256": "6d530159d0a775daabf788ccf1443f18bd444853c68ae4e45d6a6475d962909b"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-ipad-83p5x83p5@2x.png",
+      "sha256": "34b6ae2d653680d32ad572f06c65c0b057f0132793ca5a0d7b1bb86818cf55a6"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-iphone-20x20@2x.png",
+      "sha256": "bf01e6c6c4aab27276e42ef240a5cd4973afef8067f0faffb25b6ae8f428cdfe"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-iphone-20x20@3x.png",
+      "sha256": "b78d699906afe6c4a474a2ab72f4c203d171424008e9e601e1cb55b94964fc83"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-iphone-29x29@2x.png",
+      "sha256": "e27055e4a842862cbe30b39afa79964ec4c3ab25454fb7ec1459dde8ea30e5b4"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-iphone-29x29@3x.png",
+      "sha256": "8aa85aa284a24cec60d0cda9963d6aef1032cda002dd109d0b38875a31467499"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-iphone-40x40@2x.png",
+      "sha256": "ecd1ae13e5dd7408dd62105c8d484ce28a49c7ce86766b3fb0131766aef92131"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-iphone-40x40@3x.png",
+      "sha256": "50acfc5df7bb5a0f20dc314ed64f487c04caec67a75c6288c037cb96942c7099"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-iphone-60x60@2x.png",
+      "sha256": "50acfc5df7bb5a0f20dc314ed64f487c04caec67a75c6288c037cb96942c7099"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/AppIcon.appiconset/icon-iphone-60x60@3x.png",
+      "sha256": "8facac912be81da8b0518fe669ff3caad332b7050566dcfabbe93be9f5d7c894"
+    },
+    {
+      "path": "iOS/MySnake/Assets.xcassets/Contents.json",
+      "sha256": "10e3b5dc202f1cd9fad1f688c8fc9fe9e9669bf3f8295e67d216b10fd99b6f49"
+    },
+    {
+      "path": "iOS/MySnake/Core/ArcadeScore.swift",
+      "sha256": "c89e259aa51efb3b39a0f88f3bae44108e53e760a5f26b0cd4f23990802ac5dd"
+    },
+    {
+      "path": "iOS/MySnake/Core/SnakeEngine.swift",
+      "sha256": "1c9b458649393df90c8f582e7fdc962da5676b57ebdd4a46811217a7969fe4ab"
+    },
+    {
+      "path": "iOS/MySnake/Info.plist",
+      "sha256": "cf5a23ff3ebf11ca29e7cb811995e088652e3596b22eb952ac25dbe67d180234"
+    },
+    {
+      "path": "iOS/MySnake/MySnakeApp.swift",
+      "sha256": "a34019353348b1791811368b619d9f2fdf297df3d38fea89612dfb0aeb733bc0"
+    },
+    {
+      "path": "iOS/MySnake/PrivacyInfo.xcprivacy",
+      "sha256": "3e4a93cbe86acef7dd7e063a28c849992f556e7f52cadc5f37c1e8b0e1b54686"
+    },
+    {
+      "path": "iOS/MySnake/SnakeSession.swift",
+      "sha256": "58c24013e3a04cf253ccc5a253d363bdc8440a5288ba2d57b3c3ef0b8d99ea2a"
+    },
+    {
+      "path": "iOS/MySnake/SnakeViews.swift",
+      "sha256": "3aea3d466d3738c1538c468a5dcc9b23fdc4cf891666f69db11ed99432ecc6f9"
+    },
+    {
+      "path": "iOS/MySnake.xcodeproj/project.pbxproj",
+      "sha256": "2d458cddb11a4259c9dad5c015fa5a33e45eac8b45fdd9cfb3b45383983dd942"
+    },
+    {
+      "path": "iOS/MySnake.xcodeproj/project.xcworkspace/contents.xcworkspacedata",
+      "sha256": "5c2b91b67a72f0c341d6fa0eda978eee611ff4a1efee3017a5617c46284973b3"
+    },
+    {
+      "path": "iOS/MySnake.xcodeproj/xcshareddata/xcschemes/MySnake.xcscheme",
+      "sha256": "8a1999bc35a4c5267f679cedc422a383cf71b4376fc346c259677f712f6a105a"
+    },
+    {
+      "path": "iOS/OPEN-ME-FIRST.txt",
+      "sha256": "34b95e5cad4e66ccbdc830b1501eb2b2682ffa2fb08ae72a60d6e94c02b8f036"
+    },
+    {
+      "path": "iOS/Package.swift",
+      "sha256": "87c34e93bc68ab39d750eeb904172f7e338fc1a7eb89394a6690bccd586318c8"
+    },
+    {
+      "path": "iOS/README.md",
+      "sha256": "e773480ade8d6db781189776906775b619d424aaf5e666d1014edb363cfe2d72"
+    },
+    {
+      "path": "iOS/Tests/SnakeCoreTests/SnakeCoreTests.swift",
+      "sha256": "f76a716621c488cfc806e0d77d7bf31bcf53c618b7e88d8f931275da9dd1472a"
+    },
+    {
+      "path": "iOS/VALIDATION.txt",
+      "sha256": "4d52037a142eeb7771159d0d81821702778760f3a2e8facfa6f246fb8a3968d9"
+    },
+    {
+      "path": "iOS/tools/check-macos.sh",
+      "sha256": "536bca31880835180b5e58f0264893d3a865fb3458ffef83034a1e954abf92d9"
+    },
+    {
+      "path": "scripts/build-ios.sh",
+      "sha256": "49ec730ab989684222cf241d7b645bcd5512aea5579afa9c6a097b171583970c"
+    }
+  ]
+}

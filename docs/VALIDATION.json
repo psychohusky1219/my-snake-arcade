@@ -1,0 +1,38 @@
+{
+  "native_core_tests": {
+    "passed": 18,
+    "failed": 0,
+    "environment": "Swift 6.2.1, Linux"
+  },
+  "web_chromium": {
+    "portrait": {
+      "controls": "pass",
+      "layout": "pass",
+      "javascript_errors": []
+    },
+    "small-phone": {
+      "controls": "pass",
+      "layout": "pass",
+      "javascript_errors": []
+    },
+    "landscape": {
+      "controls": "pass",
+      "layout": "pass",
+      "javascript_errors": []
+    }
+  },
+  "syntax_checks": [
+    "JavaScript",
+    "bash",
+    "plist",
+    "JSON"
+  ],
+  "not_run": [
+    "Apple SDK build",
+    "iOS simulator",
+    "physical iPhone installation",
+    "Windows publisher execution",
+    "GitHub workflow execution",
+    "live service-worker offline reload"
+  ]
+}
