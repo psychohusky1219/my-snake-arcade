@@ -4,6 +4,7 @@ import UIKit
 @MainActor
 final class SnakeSession: ObservableObject {
     @Published private(set) var engine = SnakeEngine()
+    @Published private(set) var selectedMode: GameMode
     @Published private(set) var best: ArcadeScore
     @Published private(set) var isGameVisible = false
     @Published private(set) var lastReward = ""
@@ -20,16 +21,29 @@ final class SnakeSession: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        best = ArcadeScore(defaults.string(forKey: "nativeSnake.best") ?? "0")
+        let savedMode = GameMode(rawValue: defaults.string(forKey: "nativeSnake.gameMode") ?? "classic") ?? .classic
+        let initialMode: GameMode = savedMode.isPlayable ? savedMode : .classic
+        selectedMode = initialMode
+        let key = "nativeSnake.best." + initialMode.rawValue
+        let legacy = initialMode == .classic ? defaults.string(forKey: "nativeSnake.best") : nil
+        best = ArcadeScore(defaults.string(forKey: key) ?? legacy ?? "0")
         hapticsEnabled = defaults.object(forKey: "nativeSnake.haptics") == nil
             ? true : defaults.bool(forKey: "nativeSnake.haptics")
     }
 
-    var hasPausedGame: Bool { engine.phase == .paused }
+    var hasPausedGame: Bool { engine.phase == .paused && engine.mode == selectedMode }
+
+    func selectMode(_ mode: GameMode) {
+        guard !isGameVisible, mode.isPlayable else { return }
+        selectedMode = mode
+        defaults.set(mode.rawValue, forKey: "nativeSnake.gameMode")
+        let legacy = mode == .classic ? defaults.string(forKey: "nativeSnake.best") : nil
+        best = ArcadeScore(defaults.string(forKey: "nativeSnake.best." + mode.rawValue) ?? legacy ?? "0")
+    }
 
     func play() {
         isGameVisible = true
-        if engine.phase == .paused {
+        if hasPausedGame {
             resume()
         } else {
             newGame()
@@ -38,7 +52,8 @@ final class SnakeSession: ObservableObject {
 
     func newGame() {
         stopLoop()
-        engine.start(using: &random)
+        guard selectedMode.isPlayable else { return }
+        engine.start(mode: selectedMode, using: &random)
         isGameVisible = true
         lastReward = ""
         rewardTicks = 0
@@ -124,7 +139,8 @@ final class SnakeSession: ObservableObject {
         }
         if engine.score > best {
             best = engine.score
-            defaults.set(best.digits, forKey: "nativeSnake.best")
+            defaults.set(best.digits, forKey: "nativeSnake.best." + engine.mode.rawValue)
+            if engine.mode == .classic { defaults.set(best.digits, forKey: "nativeSnake.best") }
         }
         if engine.phase != .running { stopLoop() }
     }

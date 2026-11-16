@@ -97,6 +97,27 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
  .private{grid-area:private}.install-note{grid-area:install}.touch-pad{height:138px}
  #control-note{font-size:10px;min-height:26px;margin-top:5px}.mode-option{min-height:44px;padding:7px 4px}
 }
+
+/* Modes: Speed Run is a deliberately disabled placeholder. */
+.game-choice{border:0;padding:0;margin:0 auto 16px;max-width:350px;min-width:0}
+.game-choice legend{width:100%;margin-bottom:8px;color:var(--muted);font-size:9px;font-weight:850;letter-spacing:1.8px}
+.game-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.game-option{display:flex;flex-direction:column;justify-content:center;gap:5px;min-height:63px;border-radius:12px;border:1px solid #46646b;background:#223b45;font-size:13px;font-weight:850;padding:8px 4px}
+.game-option small{font-size:9px;font-weight:600;opacity:.8}
+.game-option[aria-pressed="true"]{background:var(--mint);color:#10271d;border-color:var(--mint)}
+.game-option:disabled{opacity:.43;cursor:not-allowed;transform:none}
+#game-note{font-size:11px;line-height:1.4;color:var(--muted);min-height:32px;margin:9px 0 0}
+#run-mode{display:block;font-size:9px;color:#a9c0c5;letter-spacing:1.7px;margin-top:2px}
+#game[data-mode="survivor"] #run-mode{color:#ffcf82}
+#wrap-status.hazard{color:#ffb179}
+.menu-card{margin:auto;flex-shrink:0}.logo{font-size:43px}.sub{margin:10px auto 14px}.legend{margin:14px 0 10px}.private{margin-top:10px}
+@media(orientation:portrait) and (max-height:780px){.menu-card{padding:15px 18px}.logo{font-size:33px}.kicker{font-size:9px}h1{font-size:35px}.sub{font-size:12px;margin:8px auto 12px}.game-choice{margin-bottom:12px}.control-choice{margin-bottom:10px}.legend{margin:10px 0 7px}.install-note{margin-top:7px}.game-option{min-height:58px}}
+@media(orientation:landscape) and (max-height:600px){
+ .menu-card{grid-template-areas:"logo modes" "kicker modes" "title choice" "sub choice" "legend play" "private install";gap:5px 18px}
+ .game-choice{grid-area:modes;width:100%;margin:0}.game-option{min-height:47px;padding:5px 3px;font-size:12px}
+ #game-note{min-height:26px;font-size:10px;margin:5px 0}.logo{font-size:31px}.install-note{font-size:9px}
+ .legend{margin:0}.sub{margin:4px 0}.private{margin:4px 0}.play{padding:13px}
+}
 </style>
 </head>
 <body>
@@ -106,7 +127,16 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
    <div class="logo" aria-hidden="true">🐍</div>
    <div class="kicker">MY SNAKE ARCADE</div>
    <h1>SNAKE<span>.</span></h1>
-   <p class="sub">One apple. One level up. Faster every point.<br>Catch a rare rat to multiply your score by <strong style="color:#baf57b">5×</strong>.</p>
+   <p class="sub">Pick your game. Pick your controls.<br>Apples level you up. Rats multiply your score by <strong style="color:#baf57b">5×</strong>.</p>
+   <fieldset class="game-choice">
+    <legend>CHOOSE YOUR GAME</legend>
+    <div class="game-options">
+     <button type="button" class="game-option" id="mode-classic" aria-pressed="true"><span>Classic</span><small>Original</small></button>
+     <button type="button" class="game-option" id="mode-survivor" aria-pressed="false"><span>Survivor</span><small>Obstacles 10+</small></button>
+     <button type="button" class="game-option" id="mode-speed" disabled aria-label="Speed Run, coming soon"><span>Speed Run</span><small>Coming soon</small></button>
+    </div>
+    <p id="game-note">The original game. No obstacles, wall wrap and 5× rats.</p>
+   </fieldset>
    <fieldset class="control-choice">
     <legend>CHOOSE YOUR CONTROLS</legend>
     <div class="mode-options">
@@ -123,11 +153,11 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
  </section>
  <section id="game" aria-label="Snake arcade">
   <div class="shell">
-   <div class="top"><div class="brand">🐍 SNAKE<span>.</span></div><button id="close" class="close" aria-label="Exit game">×</button></div>
+   <div class="top"><div class="brand">🐍 SNAKE<span>.</span><small id="run-mode">CLASSIC</small></div><button id="close" class="close" aria-label="Exit game">×</button></div>
    <div class="stats">
     <div class="stat"><div class="stat-label">SCORE</div><div class="stat-val score-val" id="score">0</div></div>
     <div class="stat"><div class="stat-label">LEVEL</div><div class="stat-val level-val" id="level">1</div></div>
-    <div class="stat"><div class="stat-label">BEST</div><div class="stat-val" id="best">0</div></div>
+    <div class="stat"><div class="stat-label" id="best-label">CLASSIC BEST</div><div class="stat-val" id="best">0</div></div>
    </div>
    <div class="stage" id="stage"><div class="field" id="field">
     <canvas id="canvas" width="480" height="480" role="img" aria-label="Snake playfield"></canvas>
@@ -167,6 +197,24 @@ const direction={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
 let snake=[],food=null,heading=direction.right,turns=[],score=0n,level=1n,best=0n,apples=0,sinceRat=0,mode='menu',timeout=null,lastTime=0,ratRemaining=0,fullscreenRequested=false,toastTimer=null;
 try{const saved=localStorage.getItem('my-private-snake-best-v1')||'0';if(/^\d+$/.test(saved))best=BigInt(saved)}catch(_){}
 get('best').textContent=best;
+let gameMode='classic',obstacles=[],obstacleSet=new Set(),collisionCause=null;
+try{if(localStorage.getItem('my-snake-game-mode-v1')==='survivor')gameMode='survivor'}catch(_){}
+function bestKey(){return gameMode==='classic'?'my-private-snake-best-v1':'my-snake-survivor-best-v1'}
+function selectGameMode(value){
+ if(mode!=='menu'||!['classic','survivor'].includes(value))return;
+ gameMode=value;
+ try{localStorage.setItem('my-snake-game-mode-v1',value);const saved=localStorage.getItem(bestKey())||'0';best=/^\d+$/.test(saved)?BigInt(saved):0n}catch(_){best=0n}
+ get('mode-classic').setAttribute('aria-pressed',String(value==='classic'));
+ get('mode-survivor').setAttribute('aria-pressed',String(value==='survivor'));
+ get('game-note').textContent=value==='survivor'?'Levels 1–9 are clear. From level 10: random obstacle levels. Hit a block and the run ends.':'The original game. No obstacles, wall wrap and 5× rats.';
+ get('play').textContent='PLAY '+value.toUpperCase()+' ⛶';
+ get('run-mode').textContent=value.toUpperCase();
+ get('best-label').textContent=value.toUpperCase()+' BEST';
+ get('best').textContent=best;game.dataset.mode=value;
+}
+get('mode-classic').addEventListener('click',()=>selectGameMode('classic'));
+get('mode-survivor').addEventListener('click',()=>selectGameMode('survivor'));
+selectGameMode(gameMode);
 const touchPad=get('touch-pad');
 let controlMode='arrows';
 try{if(localStorage.getItem('my-snake-control-mode-v1')==='touch')controlMode='touch'}catch(_){}
@@ -186,13 +234,46 @@ selectControlMode(controlMode);
 function rand(max){return Math.floor(Math.random()*max)}
 function place(type='apple'){
  const free=[];
- for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++)if(!snake.some(p=>p.x===x&&p.y===y))free.push({x,y});
+ for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++)if(!snake.some(p=>p.x===x&&p.y===y)&&!obstacleSet.has(y*COUNT+x))free.push({x,y});
  if(!free.length)return null;
  return {...free[rand(free.length)],type};
+}
+function openCellsConnected(blocked,start){
+ const key=p=>p.y*COUNT+p.x,seen=new Set([key(start)]),pending=[start];
+ for(let i=0;i<pending.length;i++){
+  const p=pending[i];for(const d of Object.values(direction)){
+   const n={x:(p.x+d.x+COUNT)%COUNT,y:(p.y+d.y+COUNT)%COUNT},k=key(n);
+   if(!blocked.has(k)&&!seen.has(k)){seen.add(k);pending.push(n)}
+  }
+ }
+ return seen.size===COUNT*COUNT-blocked.size;
+}
+function refreshObstacles(random=Math.random){
+ obstacles=[];obstacleSet.clear();
+ if(gameMode!=='survivor'||level<10n||random()>=.5)return;
+ const key=p=>p.y*COUNT+p.x,head=snake[0],protectedCells=new Set(snake.map(key));
+ if(food)protectedCells.add(key(food));
+ for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++){
+  const dx=Math.min(Math.abs(x-head.x),COUNT-Math.abs(x-head.x)),dy=Math.min(Math.abs(y-head.y),COUNT-Math.abs(y-head.y));
+  if(dx+dy<=4)protectedCells.add(y*COUNT+x);
+ }
+ for(let i=1;i<=7;i++)protectedCells.add(((head.y+heading.y*i+COUNT*2)%COUNT)*COUNT+(head.x+heading.x*i+COUNT*2)%COUNT);
+ const shapes=[[[0,0],[1,0],[2,0]],[[0,0],[0,1],[0,2]],[[0,0],[1,0],[0,1],[1,1]],[[0,0],[0,1],[1,1]],[[0,0]]];
+ const target=4+Math.floor(random()*5);let groups=0;
+ for(let attempt=0;attempt<100&&groups<target;attempt++){
+  const shape=shapes[Math.floor(random()*shapes.length)],x=Math.floor(random()*COUNT),y=Math.floor(random()*COUNT);
+  const cells=shape.map(([dx,dy])=>({x:(x+dx)%COUNT,y:(y+dy)%COUNT}));
+  if(cells.some(p=>protectedCells.has(key(p))||obstacleSet.has(key(p))))continue;
+  const proposed=new Set([...obstacleSet,...cells.map(key)]);
+  if(COUNT*COUNT-proposed.size-snake.length<8||!openCellsConnected(proposed,head))continue;
+  obstacles.push(...cells);obstacleSet=proposed;groups++;
+ }
 }
 function millis(){return Math.max(53,Math.round(210/(1+Number(score>1000n?1000n:score)*.055)))}
 function update(){
  get('score').textContent=score;get('level').textContent=level;get('best').textContent=best;
+ get('wrap-status').textContent=gameMode==='survivor'?(obstacles.length?'⚠ Obstacle level':'✓ Clear level'):'↔ Wall wrap ON';
+ get('wrap-status').classList.toggle('hazard',obstacles.length>0);
  if(food&&food.type==='rat')get('hint').textContent='🐀 Rat bonus! '+Math.ceil(ratRemaining/1000)+'s left · Score ×5';
  else get('hint').textContent='⚡ '+(1000/millis()).toFixed(1)+' moves/sec · '+(controlMode==='touch'?'Swipe on touch pad':'Use arrow pad');
 }
@@ -207,6 +288,12 @@ function render(){
  ctx.fillStyle='#0d1c25';ctx.fillRect(0,0,480,480);
  ctx.strokeStyle='#1c323b';ctx.lineWidth=.6;ctx.beginPath();
  for(let i=1;i<COUNT;i++){const p=i*CELL+.5;ctx.moveTo(p,0);ctx.lineTo(p,480);ctx.moveTo(0,p);ctx.lineTo(480,p)}ctx.stroke();
+ for(const p of obstacles){
+  const x=p.x*CELL,y=p.y*CELL;
+  rectangle(x+1.5,y+1.5,17,17,3,'#df642f');
+  ctx.strokeStyle='#ffcf82';ctx.lineWidth=1.1;ctx.strokeRect(x+3,y+3,14,14);
+  ctx.strokeStyle='#683b2d';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+6,y+6);ctx.lineTo(x+14,y+14);ctx.moveTo(x+14,y+6);ctx.lineTo(x+6,y+14);ctx.stroke();
+ }
  if(food){
   const x=food.x*CELL+10,y=food.y*CELL+10;
   ctx.shadowBlur=13;
@@ -236,6 +323,7 @@ if('ResizeObserver' in window)new ResizeObserver(resize).observe(stage);
 window.addEventListener('resize',resize);
 function reset(){
  snake=[{x:12,y:12},{x:11,y:12},{x:10,y:12}];heading=direction.right;turns=[];
+ obstacles=[];obstacleSet.clear();collisionCause=null;
  score=0n;level=1n;apples=0;sinceRat=0;ratRemaining=0;food=place('apple');lastTime=performance.now();update();render();
 }
 function cancelTick(){if(timeout!==null){clearTimeout(timeout);timeout=null}}
@@ -246,7 +334,7 @@ function start(){
 function announce(message){const el=get('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1600)}
 function over(win){
  finishTouch();update();cancelTick();mode=win?'won':'over';
- get('overlay-emoji').textContent=win?'🏆':'💥';get('overlay-title').textContent=win?'You win!':'Game over';
+ get('overlay-emoji').textContent=win?'🏆':'💥';get('overlay-title').textContent=win?'You win!':collisionCause==='obstacle'?'Obstacle hit!':'Game over';
  get('overlay-sub').textContent='Score: '+score+' · Level: '+level;
  get('overlay-button').textContent='Play again ↻';get('overlay').classList.remove('hidden');
 }
@@ -269,15 +357,22 @@ function tick(){
  if(turns.length)heading=turns.shift();
  const head={x:(snake[0].x+heading.x+COUNT)%COUNT,y:(snake[0].y+heading.y+COUNT)%COUNT};
  const eating=food&&head.x===food.x&&head.y===food.y;
- if((eating?snake:snake.slice(0,-1)).some(p=>p.x===head.x&&p.y===head.y)){over(false);return}
+ if(obstacleSet.has(head.y*COUNT+head.x)){collisionCause='obstacle';over(false);return}
+ if((eating?snake:snake.slice(0,-1)).some(p=>p.x===head.x&&p.y===head.y)){collisionCause='body';over(false);return}
  snake.unshift(head);
  if(eating){
   if(food.type==='rat'){
    score*=5n;announce('🐀 RAT EATEN! ×5 SCORE!');ratRemaining=0;
   }else{score+=1n;apples+=1;sinceRat+=1;}
   level=score+1n;
-  if(score>best){best=score;try{localStorage.setItem('my-private-snake-best-v1',String(best))}catch(_){}}
+  if(score>best){best=score;try{localStorage.setItem(bestKey(),String(best))}catch(_){}}
+  const hadObstacles=obstacles.length>0;
+  refreshObstacles();
   if(!nextFood()){render();return}
+  if(gameMode==='survivor'&&level>=10n){
+   if(obstacles.length)announce('⚠ LEVEL '+level+' · AVOID THE BLOCKS');
+   else if(hadObstacles)announce('✓ LEVEL '+level+' · CLEAR BOARD');
+  }
  }else snake.pop();
  update();render();schedule();
 }

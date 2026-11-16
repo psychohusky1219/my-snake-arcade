@@ -50,7 +50,7 @@ private struct SnakeMenuView: View {
                     VStack(spacing: 14) {
                         Spacer(minLength: 0)
                         title
-                        preview(side: min(geometry.size.width - 90, max(90, geometry.size.height * 0.22)))
+                        preview(side: min(geometry.size.width - 90, max(70, min(120, geometry.size.height * 0.16))))
                         buttons
                         Spacer(minLength: 0)
                         footer
@@ -97,9 +97,10 @@ private struct SnakeMenuView: View {
 
     private var buttons: some View {
         VStack(spacing: 12) {
+            gameModeSelector
             HStack(spacing: 8) {
                 Image(systemName: "trophy.fill").foregroundStyle(ArcadeTheme.gold)
-                Text("BEST  \(session.best.compact)")
+                Text("\(session.selectedMode.title.uppercased()) BEST  \(session.best.compact)")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .monospacedDigit()
             }
@@ -122,7 +123,7 @@ private struct SnakeMenuView: View {
                     .multilineTextAlignment(.center)
             }
             Button(action: session.play) {
-                Label(session.hasPausedGame ? "Continue game" : "Play Snake", systemImage: "play.fill")
+                Label(session.hasPausedGame ? "Continue game" : "Play \(session.selectedMode.title)", systemImage: "play.fill")
                     .font(.system(size: 17, weight: .heavy, design: .rounded))
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
@@ -140,6 +141,46 @@ private struct SnakeMenuView: View {
                 .foregroundStyle(ArcadeTheme.secondary)
         }
         .frame(maxWidth: 360)
+    }
+
+    private var gameModeSelector: some View {
+        VStack(spacing: 8) {
+            Text("CHOOSE YOUR GAME")
+                .font(.system(size: 9, weight: .bold)).tracking(1.5)
+                .foregroundStyle(ArcadeTheme.secondary)
+            HStack(spacing: 7) {
+                gameChoice(.classic, symbol: "leaf.fill")
+                gameChoice(.survivor, symbol: "shield.fill")
+                gameChoice(.speedRun, symbol: "bolt.fill")
+            }
+            Text(session.selectedMode == .survivor
+                 ? "Levels 1–9 are clear. From level 10, random obstacle levels. Hit a block and the run ends."
+                 : "The original game. No obstacles, wall wrap and 5× rats.")
+                .font(.system(size: 10)).foregroundStyle(ArcadeTheme.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func gameChoice(_ mode: GameMode, symbol: String) -> some View {
+        let selected = session.selectedMode == mode
+        return Button { session.selectMode(mode) } label: {
+            VStack(spacing: 4) {
+                Image(systemName: symbol).font(.system(size: 18, weight: .bold))
+                Text(mode.title).font(.system(size: 12, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
+                Text(mode.isPlayable ? (mode == .survivor ? "Obstacles 10+" : "Original") : "Coming soon")
+                    .font(.system(size: 8, weight: .medium))
+            }
+            .frame(maxWidth: .infinity).frame(height: 72)
+            .foregroundStyle(selected ? ArcadeTheme.background : .white)
+            .background(selected ? ArcadeTheme.lime : ArcadeTheme.panel,
+                        in: RoundedRectangle(cornerRadius: 13))
+            .opacity(mode.isPlayable ? 1 : 0.45)
+        }
+        .buttonStyle(.plain)
+        .disabled(!mode.isPlayable)
+        .accessibilityLabel(mode.title + (mode.isPlayable ? "" : ", coming soon"))
+        .accessibilityValue(selected ? "Selected" : "Not selected")
     }
 
     private func controlChoice(_ title: String, symbol: String, value: String) -> some View {
@@ -238,7 +279,7 @@ private struct SnakePlayView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("MY SNAKE.")
                     .font(.system(size: 23, weight: .black, design: .rounded))
-                Text("NATIVE IPHONE EDITION")
+                Text(session.engine.mode.title.uppercased() + " · IPHONE EDITION")
                     .font(.system(size: 8, weight: .bold))
                     .tracking(2)
                     .foregroundStyle(ArcadeTheme.lime)
@@ -307,7 +348,7 @@ private struct SnakePlayView: View {
             VStack(spacing: 12) {
                 Text(paused ? "⏸" : (won ? "🏆" : "🐍"))
                     .font(.system(size: 38))
-                Text(paused ? "PAUSED" : (won ? "BOARD CLEARED!" : "GAME OVER"))
+                Text(paused ? "PAUSED" : (won ? "BOARD CLEARED!" : (session.engine.collisionCause == .obstacle ? "OBSTACLE HIT!" : "GAME OVER")))
                     .font(.system(size: 23, weight: .black, design: .rounded))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
@@ -342,7 +383,12 @@ private struct SnakePlayView: View {
                     .foregroundStyle(ArcadeTheme.secondary)
             }
             Spacer(minLength: 4)
-            Text("↔ Wrap on").foregroundStyle(ArcadeTheme.lime)
+            if session.engine.mode == .survivor {
+                Text(session.engine.obstacles.isEmpty ? "Clear level" : "⚠ Obstacle level")
+                    .foregroundStyle(session.engine.obstacles.isEmpty ? ArcadeTheme.lime : ArcadeTheme.gold)
+            } else {
+                Text("↔ Wrap on").foregroundStyle(ArcadeTheme.lime)
+            }
         }
         .font(.system(size: 10, weight: .semibold))
         .lineLimit(1)
@@ -508,6 +554,22 @@ private struct SnakeBoardCanvas: View {
                 grid.addLine(to: CGPoint(x: size.width, y: coordinate))
             }
             context.stroke(grid, with: .color(.white.opacity(0.045)), lineWidth: 0.6)
+
+            for obstacle in engine.obstacles {
+                let inset = max(1, cellSize * 0.08)
+                let rect = CGRect(x: CGFloat(obstacle.x) * cellSize + inset,
+                                  y: CGFloat(obstacle.y) * cellSize + inset,
+                                  width: cellSize - inset * 2, height: cellSize - inset * 2)
+                let shape = Path(roundedRect: rect, cornerRadius: cellSize * 0.13)
+                context.fill(shape, with: .color(Color(red: 0.89, green: 0.39, blue: 0.18)))
+                context.stroke(shape, with: .color(ArcadeTheme.gold), lineWidth: max(1, cellSize * 0.05))
+                var cross = Path()
+                cross.move(to: CGPoint(x: rect.minX + rect.width * 0.28, y: rect.minY + rect.height * 0.28))
+                cross.addLine(to: CGPoint(x: rect.maxX - rect.width * 0.28, y: rect.maxY - rect.height * 0.28))
+                cross.move(to: CGPoint(x: rect.maxX - rect.width * 0.28, y: rect.minY + rect.height * 0.28))
+                cross.addLine(to: CGPoint(x: rect.minX + rect.width * 0.28, y: rect.maxY - rect.height * 0.28))
+                context.stroke(cross, with: .color(ArcadeTheme.background.opacity(0.6)), lineWidth: max(1, cellSize * 0.08))
+            }
 
             if let food = engine.food {
                 let center = CGPoint(x: (CGFloat(food.cell.x) + 0.5) * cellSize,

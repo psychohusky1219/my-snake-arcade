@@ -1,16 +1,15 @@
-# My Snake — native iPhone build (unsigned)
+# My Snake — Classic + Survivor update (unsigned iPhone build)
 
-A real Swift/SwiftUI iPhone app, not an embedded website. The app itself runs offline.
+A native Swift/SwiftUI app, not an embedded website.
 
-**This IPA is UNSIGNED. Downloading it on an iPhone does not install it.**
-Use your own Apple account and a compatible signing/installation tool. Follow
-`INSTALL-WINDOWS.md`; do not send Apple credentials to a chat or add them to this repository.
+- Choose Classic or Survivor before playing.
+- Classic retains the original obstacle-free game.
+- Survivor: levels 1–9 clear; each new level 10+ has a 50% obstacle chance. Hit a block and the run ends. Layouts reset every level rather than accumulate.
+- Bars, squares, corners and blocks; safe placement and connected open paths.
+- Speed Run remains a disabled Coming soon placeholder.
+- Separate local mode high scores, preserving your existing Classic best.
+- Keep large Arrow Pad / separate Touch Pad controls, compact Pause/Restart, wall wrap, rats and exact 5× scoring.
 
-Features: swipe + arrow pad, wall wrapping, +1 apples, score-based levels/speed,
-rare rats that multiply the current score by 5, local best score, pause and X-to-menu.
-Speed has a practical upper limit so the game remains responsive.
+**The IPA is unsigned.** Install/update through Sideloadly using the same Apple account and bundle-ID settings as your existing game. Do not uninstall the current game first. Downloading the IPA in Safari does not install it. This is a development pre-release, not an App Store or TestFlight release. Physical-iPhone testing remains necessary.
 
-This is a development pre-release, not an App Store or TestFlight distribution.
-Physical-iPhone testing and installation remain necessary.
-
-Browser edition: https://my-snake-arcade.vercel.app/
+Browser game: https://my-snake-arcade.vercel.app/

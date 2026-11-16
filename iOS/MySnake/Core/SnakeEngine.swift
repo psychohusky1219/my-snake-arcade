@@ -25,6 +25,15 @@ public struct Food: Equatable, Sendable {
     }
 }
 
+public enum GameMode: String, CaseIterable, Sendable {
+    case classic, survivor, speedRun
+    public var title: String {
+        switch self { case .classic: return "Classic"; case .survivor: return "Survivor"; case .speedRun: return "Speed Run" }
+    }
+    public var isPlayable: Bool { self != .speedRun }
+}
+public enum CollisionCause: Sendable { case body, obstacle }
+
 public enum GamePhase: Sendable { case ready, running, paused, gameOver, won }
 public enum GameEvent: Sendable { case none, moved, apple, rat, collision, won }
 
@@ -32,10 +41,12 @@ public struct GameRules: Sendable {
     public var ratChance: Double
     public var applesBeforeRats: Int
     public var ratLifetime: Double
-    public init(ratChance: Double = 0.18, applesBeforeRats: Int = 3, ratLifetime: Double = 8) {
+    public var obstacleChance: Double
+    public init(ratChance: Double = 0.18, applesBeforeRats: Int = 3, ratLifetime: Double = 8, obstacleChance: Double = 0.5) {
         self.ratChance = min(1, max(0, ratChance))
         self.applesBeforeRats = max(0, applesBeforeRats)
         self.ratLifetime = max(0.1, ratLifetime)
+        self.obstacleChance = min(1, max(0, obstacleChance))
     }
 }
 
@@ -50,6 +61,9 @@ public struct SnakeEngine {
     public private(set) var applesEaten = 0
     public private(set) var ratsEaten = 0
     public private(set) var phase: GamePhase = .ready
+    public private(set) var mode: GameMode = .classic
+    public private(set) var obstacles: Set<Cell> = []
+    public private(set) var collisionCause: CollisionCause?
     private var queuedTurns: [Direction] = []
 
     public init(boardSize: Int = 20, rules: GameRules = GameRules()) {
@@ -64,7 +78,8 @@ public struct SnakeEngine {
     // Internal fixture initializer used only by the portable unit tests.
     init(boardSize: Int = 20, body: [Cell], direction: Direction = .right,
          food: Food?, score: ArcadeScore = ArcadeScore(), applesEaten: Int = 0,
-         phase: GamePhase = .running, rules: GameRules = GameRules()) {
+         phase: GamePhase = .running, rules: GameRules = GameRules(),
+         mode: GameMode = .classic, obstacles: Set<Cell> = []) {
         precondition(boardSize >= 4 && boardSize <= 100)
         precondition(!body.isEmpty && Set(body).count == body.count)
         precondition(body.allSatisfy { (0..<boardSize).contains($0.x) && (0..<boardSize).contains($0.y) })
@@ -77,13 +92,20 @@ public struct SnakeEngine {
         self.score = score
         self.applesEaten = applesEaten
         self.phase = phase
+        self.mode = mode
+        self.obstacles = obstacles
     }
 
     public var level: ArcadeScore { score.nextLevel }
     /// Same initial pace and playable speed ceiling as the previous game.
     public var movementInterval: Double { max(0.055, 0.195 / (1 + score.speedValue * 0.048)) }
 
-    public mutating func start<R: RandomNumberGenerator>(using rng: inout R) {
+    public mutating func start<R: RandomNumberGenerator>(mode: GameMode = .classic, using rng: inout R) {
+        // Speed Run is deliberately a placeholder, never a playable rule set.
+        guard mode.isPlayable else { phase = .ready; queuedTurns.removeAll(); obstacles = []; return }
+        self.mode = mode
+        obstacles.removeAll()
+        collisionCause = nil
         let mid = boardSize / 2
         body = [Cell(x: mid, y: mid), Cell(x: mid - 1, y: mid), Cell(x: mid - 2, y: mid)]
         direction = .right
@@ -132,7 +154,8 @@ public struct SnakeEngine {
         let eaten = food.flatMap { $0.cell == next ? $0 : nil }
         // Moving into the old tail is legal only when that tail vacates this tick.
         let occupiedCount = body.count - (eaten == nil ? 1 : 0)
-        if body.prefix(occupiedCount).contains(next) {
+        if obstacles.contains(next) || body.prefix(occupiedCount).contains(next) {
+            collisionCause = obstacles.contains(next) ? .obstacle : .body
             phase = .gameOver
             queuedTurns.removeAll()
             return .collision
@@ -154,12 +177,75 @@ public struct SnakeEngine {
             phase = .won
             return .won
         }
+        // Roll once for the level actually reached (also when a rat skips levels).
+        // Every roll replaces the old layout, so clear levels have no leftovers.
+        refreshObstacles(using: &rng)
         food = spawnFood(using: &rng)
+        if food == nil { phase = .won; return .won }
         return eaten.kind == .rat ? .rat : .apple
     }
 
+    /// Regenerate once per level, not per tick or per pause/resume.
+    /// All open cells stay connected; the snake and nearby escape routes are protected.
+    mutating func refreshObstacles<R: RandomNumberGenerator>(using rng: inout R) {
+        obstacles.removeAll()
+        guard mode == .survivor, level >= ArcadeScore("10"),
+              Double.random(in: 0..<1, using: &rng) < rules.obstacleChance else { return }
+        let head = body[0]
+        var protected = Set(body)
+        if let food { protected.insert(food.cell) }
+        for y in 0..<boardSize { for x in 0..<boardSize {
+            let dx = min(abs(x - head.x), boardSize - abs(x - head.x))
+            let dy = min(abs(y - head.y), boardSize - abs(y - head.y))
+            if dx + dy <= 4 { protected.insert(Cell(x: x, y: y)) }
+        } }
+        // Give the current course extra room at high speeds.
+        for step in 1...7 {
+            protected.insert(Cell(x: (head.x + direction.dx * step + boardSize * 2) % boardSize,
+                                  y: (head.y + direction.dy * step + boardSize * 2) % boardSize))
+        }
+        let shapes: [[Cell]] = [
+            [Cell(x:0,y:0), Cell(x:1,y:0), Cell(x:2,y:0)],
+            [Cell(x:0,y:0), Cell(x:0,y:1), Cell(x:0,y:2)],
+            [Cell(x:0,y:0), Cell(x:1,y:0), Cell(x:0,y:1), Cell(x:1,y:1)],
+            [Cell(x:0,y:0), Cell(x:0,y:1), Cell(x:1,y:1)],
+            [Cell(x:0,y:0)]
+        ]
+        let target = Int.random(in: 4...8, using: &rng)
+        var groups = 0
+        for _ in 0..<100 {
+            if groups >= target { break }
+            let shape = shapes[Int.random(in: 0..<shapes.count, using: &rng)]
+            let x = Int.random(in: 0..<boardSize, using: &rng)
+            let y = Int.random(in: 0..<boardSize, using: &rng)
+            let cells = Set(shape.map { Cell(x: (x + $0.x) % boardSize, y: (y + $0.y) % boardSize) })
+            guard cells.isDisjoint(with: protected), cells.isDisjoint(with: obstacles) else { continue }
+            let proposed = obstacles.union(cells)
+            // On a crowded board, fall back to a clear level rather than force a trap.
+            guard boardSize * boardSize - proposed.count - body.count >= 8,
+                  allOpenCellsConnected(blocked: proposed, from: head) else { continue }
+            obstacles = proposed
+            groups += 1
+        }
+    }
+
+    private func allOpenCellsConnected(blocked: Set<Cell>, from start: Cell) -> Bool {
+        var visited: Set<Cell> = [start]
+        var pending = [start]
+        var cursor = 0
+        while cursor < pending.count {
+            let here = pending[cursor]; cursor += 1
+            for d in Direction.allCases {
+                let next = Cell(x: (here.x + d.dx + boardSize) % boardSize,
+                                y: (here.y + d.dy + boardSize) % boardSize)
+                if !blocked.contains(next), visited.insert(next).inserted { pending.append(next) }
+            }
+        }
+        return visited.count == boardSize * boardSize - blocked.count
+    }
+
     private func spawnFood<R: RandomNumberGenerator>(using rng: inout R, allowRat: Bool = true) -> Food? {
-        let occupied = Set(body)
+        let occupied = Set(body).union(obstacles)
         var free: [Cell] = []
         for y in 0..<boardSize {
             for x in 0..<boardSize {
