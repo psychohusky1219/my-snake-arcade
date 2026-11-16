@@ -12,15 +12,16 @@ private enum ArcadeTheme {
 @MainActor
 struct SnakeRootView: View {
     @StateObject private var session = SnakeSession()
+    @AppStorage("nativeSnake.controlStyle") private var controlStyleRaw = "arrows"
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
             ArcadeTheme.background.ignoresSafeArea()
             if session.isGameVisible {
-                SnakePlayView(session: session)
+                SnakePlayView(session: session, useTouchPad: controlStyleRaw == "touch")
             } else {
-                SnakeMenuView(session: session)
+                SnakeMenuView(session: session, controlStyleRaw: $controlStyleRaw)
             }
         }
         .tint(ArcadeTheme.lime)
@@ -33,27 +34,30 @@ struct SnakeRootView: View {
 @MainActor
 private struct SnakeMenuView: View {
     @ObservedObject var session: SnakeSession
+    @Binding var controlStyleRaw: String
 
     var body: some View {
         GeometryReader { geometry in
-            if geometry.size.width > geometry.size.height {
-                HStack(spacing: 30) {
-                    preview(side: min(geometry.size.height - 36, geometry.size.width * 0.40))
-                    menuContent
+            ScrollView(.vertical) {
+                if geometry.size.width > geometry.size.height {
+                    HStack(spacing: 24) {
+                        preview(side: max(100, min(geometry.size.height - 36, geometry.size.width * 0.36)))
+                        menuContent
+                    }
+                    .padding(18)
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+                } else {
+                    VStack(spacing: 14) {
+                        Spacer(minLength: 0)
+                        title
+                        preview(side: min(geometry.size.width - 90, max(90, geometry.size.height * 0.22)))
+                        buttons
+                        Spacer(minLength: 0)
+                        footer
+                    }
+                    .padding(22)
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height)
                 }
-                .padding(18)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                VStack(spacing: 18) {
-                    Spacer(minLength: 0)
-                    title
-                    preview(side: min(geometry.size.width - 90, max(130, geometry.size.height * 0.32)))
-                    buttons
-                    Spacer(minLength: 0)
-                    footer
-                }
-                .padding(22)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
@@ -101,6 +105,22 @@ private struct SnakeMenuView: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Best score \(session.best.digits)")
+            VStack(spacing: 8) {
+                Text("CHOOSE YOUR CONTROLS")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(1.5)
+                    .foregroundStyle(ArcadeTheme.secondary)
+                HStack(spacing: 8) {
+                    controlChoice("Arrow Pad", symbol: "dpad.fill", value: "arrows")
+                    controlChoice("Touch Pad", symbol: "hand.draw.fill", value: "touch")
+                }
+                Text(controlStyleRaw == "touch"
+                     ? "Swipe on the separate pad, not the game board."
+                     : "Steer with the large directional buttons.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(ArcadeTheme.secondary)
+                    .multilineTextAlignment(.center)
+            }
             Button(action: session.play) {
                 Label(session.hasPausedGame ? "Continue game" : "Play Snake", systemImage: "play.fill")
                     .font(.system(size: 17, weight: .heavy, design: .rounded))
@@ -120,6 +140,24 @@ private struct SnakeMenuView: View {
                 .foregroundStyle(ArcadeTheme.secondary)
         }
         .frame(maxWidth: 360)
+    }
+
+    private func controlChoice(_ title: String, symbol: String, value: String) -> some View {
+        let selected = controlStyleRaw == value
+        return Button { controlStyleRaw = value } label: {
+            Label(title, systemImage: symbol)
+                .font(.system(size: 13, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .foregroundStyle(selected ? ArcadeTheme.background : .white)
+                .background(selected ? ArcadeTheme.lime : ArcadeTheme.panel,
+                            in: RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(selected ? "Selected" : "Not selected")
     }
 
     private var footer: some View {
@@ -144,12 +182,15 @@ private struct SnakeMenuView: View {
 @MainActor
 private struct SnakePlayView: View {
     @ObservedObject var session: SnakeSession
+    let useTouchPad: Bool
     @State private var confirmRestart = false
 
     var body: some View {
         GeometryReader { geometry in
             if geometry.size.width > geometry.size.height {
                 let side = max(100, min(geometry.size.height - 24, geometry.size.width - 320))
+                let controlWidth = min(420, geometry.size.width - side - 42)
+                let arrowSide = controlButtonSide(for: controlWidth, compact: true)
                 HStack(spacing: 18) {
                     board(side: side)
                     VStack(spacing: 10) {
@@ -157,7 +198,7 @@ private struct SnakePlayView: View {
                         scores
                         Spacer(minLength: 0)
                         status
-                        controls(compact: true)
+                        controls(buttonSide: arrowSide)
                         Spacer(minLength: 0)
                     }
                     .frame(maxWidth: 420)
@@ -165,7 +206,9 @@ private struct SnakePlayView: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                let side = max(100, min(geometry.size.width - 28, geometry.size.height - 332))
+                let arrowSide = controlButtonSide(for: geometry.size.width - 24, compact: false)
+                let reservedHeight = 232 + arrowSide * 2 + 6
+                let side = max(100, min(geometry.size.width - 28, geometry.size.height - reservedHeight))
                 VStack(spacing: 10) {
                     topBar
                     scores
@@ -173,8 +216,8 @@ private struct SnakePlayView: View {
                     board(side: side)
                     status
                     Spacer(minLength: 0)
-                    controls(compact: false)
-                    Text("Swipe on the board or use the arrow pad")
+                    controls(buttonSide: arrowSide)
+                    Text(useTouchPad ? "Swipe on the touch pad below the board" : "Use the arrow pad to steer")
                         .font(.system(size: 10))
                         .foregroundStyle(ArcadeTheme.secondary)
                 }
@@ -244,7 +287,8 @@ private struct SnakePlayView: View {
 
     private func board(side: CGFloat) -> some View {
         ZStack {
-            SwipeBoard(engine: session.engine, onTurn: session.turn)
+            SnakeBoardCanvas(engine: session.engine)
+                .accessibilityLabel("Snake playfield. Use the separate controls to steer.")
             if session.engine.phase != .running {
                 gameOverlay
             }
@@ -306,24 +350,38 @@ private struct SnakePlayView: View {
         .frame(height: 20)
     }
 
-    private func controls(compact: Bool) -> some View {
-        let buttonSide: CGFloat = compact ? 44 : 48
+    // Keep the directional pad dominant without pushing controls off small screens.
+    private func controlButtonSide(for availableWidth: CGFloat, compact: Bool) -> CGFloat {
+        let maximum: CGFloat = compact ? 64 : 76
+        // Two 44-point utility buttons, two 8-point outer gaps, and two 6-point pad gaps.
+        return min(maximum, max(44, floor((availableWidth - 116) / 3)))
+    }
+
+    private func controls(buttonSide: CGFloat) -> some View {
         return HStack(alignment: .center, spacing: 8) {
             utilityButton(session.engine.phase == .paused ? "play.fill" : "pause.fill",
                           label: session.engine.phase == .paused ? "Resume" : "Pause") {
                 session.togglePause()
             }
             .disabled(session.engine.phase != .running && session.engine.phase != .paused)
-            Spacer(minLength: 0)
-            VStack(spacing: 4) {
-                arrow(.up, symbol: "arrow.up", side: buttonSide)
-                HStack(spacing: 4) {
-                    arrow(.left, symbol: "arrow.left", side: buttonSide)
-                    arrow(.down, symbol: "arrow.down", side: buttonSide)
-                    arrow(.right, symbol: "arrow.right", side: buttonSide)
+            Group {
+                if useTouchPad {
+                    SnakeTouchPad(onTurn: session.turn)
+                        .id(session.engine.phase == .running)
+                        .allowsHitTesting(session.engine.phase == .running)
+                        .frame(height: buttonSide * 2 + 6)
+                } else {
+                    VStack(spacing: 6) {
+                        arrow(.up, symbol: "arrow.up", side: buttonSide)
+                        HStack(spacing: 6) {
+                            arrow(.left, symbol: "arrow.left", side: buttonSide)
+                            arrow(.down, symbol: "arrow.down", side: buttonSide)
+                            arrow(.right, symbol: "arrow.right", side: buttonSide)
+                        }
+                    }
                 }
             }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity)
             utilityButton("arrow.clockwise", label: "Restart") {
                 if session.engine.phase == .running || session.engine.phase == .paused {
                     // Pause while the confirmation is on screen so it cannot cause a collision.
@@ -334,13 +392,13 @@ private struct SnakePlayView: View {
                 }
             }
         }
-        .frame(height: buttonSide * 2 + 4)
+        .frame(height: buttonSide * 2 + 6)
     }
 
     private func arrow(_ direction: Direction, symbol: String, side: CGFloat) -> some View {
         Button { session.turn(direction) } label: {
             Image(systemName: symbol)
-                .font(.system(size: 22, weight: .heavy))
+                .font(.system(size: min(34, side * 0.45), weight: .heavy))
                 .foregroundStyle(.white)
                 .frame(width: side, height: side)
                 .background(ArcadeTheme.panel, in: RoundedRectangle(cornerRadius: 12))
@@ -352,37 +410,85 @@ private struct SnakePlayView: View {
 
     private func utilityButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: symbol).font(.system(size: 17, weight: .bold))
-                Text(label).font(.system(size: 9, weight: .semibold))
+            VStack(spacing: 3) {
+                Image(systemName: symbol).font(.system(size: 14, weight: .bold))
+                Text(label).font(.system(size: 8, weight: .semibold))
             }
-            .frame(width: 52, height: 54)
+            .frame(width: 44, height: 44)
             .foregroundStyle(.white)
-            .background(ArcadeTheme.panel, in: RoundedRectangle(cornerRadius: 12))
+            .background(ArcadeTheme.panel, in: RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
     }
 }
 
-private struct SwipeBoard: View {
-    let engine: SnakeEngine
+// Only this separate control surface accepts swipe gestures. The grid is display-only.
+private struct SnakeTouchPad: View {
     let onTurn: (Direction) -> Void
+    @GestureState private var touching = false
     @State private var previousTranslation = CGSize.zero
+    @State private var fingerPosition = CGPoint.zero
 
     var body: some View {
-        SnakeBoardCanvas(engine: engine)
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0)
-                .onChanged { drag in
-                    let dx = drag.translation.width - previousTranslation.width
-                    let dy = drag.translation.height - previousTranslation.height
-                    guard max(abs(dx), abs(dy)) >= 16 else { return }
-                    onTurn(abs(dx) > abs(dy) ? (dx > 0 ? .right : .left) : (dy > 0 ? .down : .up))
-                    previousTranslation = drag.translation
+        GeometryReader { geometry in
+            ZStack {
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(ArcadeTheme.panel)
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(ArcadeTheme.lime.opacity(touching ? 0.9 : 0.35), lineWidth: 1.5)
+                VStack(spacing: 9) {
+                    Image(systemName: "arrow.up").font(.system(size: 20, weight: .bold))
+                    HStack {
+                        Image(systemName: "arrow.left")
+                        Spacer(minLength: 4)
+                        VStack(spacing: 5) {
+                            Text("TOUCH PAD").font(.system(size: 10, weight: .heavy)).tracking(1)
+                            Text("Swipe here").font(.system(size: 12, weight: .semibold))
+                        }
+                        Spacer(minLength: 4)
+                        Image(systemName: "arrow.right")
+                    }
+                    .padding(.horizontal, 14)
+                    Image(systemName: "arrow.down").font(.system(size: 20, weight: .bold))
                 }
-                .onEnded { _ in previousTranslation = .zero })
-            .accessibilityLabel("Snake game board. Swipe or use the directional buttons.")
+                .foregroundStyle(ArcadeTheme.lime.opacity(0.8))
+                .allowsHitTesting(false)
+                if touching {
+                    Circle().fill(ArcadeTheme.lime.opacity(0.5))
+                        .frame(width: 24, height: 24)
+                        .position(x: min(max(12, fingerPosition.x), geometry.size.width - 12),
+                                  y: min(max(12, fingerPosition.y), geometry.size.height - 12))
+                        .allowsHitTesting(false)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 18))
+            .gesture(DragGesture(minimumDistance: 0)
+                .updating($touching) { _, active, _ in active = true }
+                .onChanged { drag in steer(drag) }
+                .onEnded { drag in
+                    steer(drag)
+                    previousTranslation = .zero
+                })
+            .onChange(of: touching) { active in
+                if !active { previousTranslation = .zero }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Touch pad. Swipe here to steer. The game board does not respond to swipes.")
+        .accessibilityAction(named: Text("Move up")) { onTurn(.up) }
+        .accessibilityAction(named: Text("Move down")) { onTurn(.down) }
+        .accessibilityAction(named: Text("Move left")) { onTurn(.left) }
+        .accessibilityAction(named: Text("Move right")) { onTurn(.right) }
+    }
+
+    private func steer(_ drag: DragGesture.Value) {
+        fingerPosition = drag.location
+        let dx = drag.translation.width - previousTranslation.width
+        let dy = drag.translation.height - previousTranslation.height
+        guard max(abs(dx), abs(dy)) >= 13 else { return }
+        onTurn(abs(dx) > abs(dy) ? (dx > 0 ? .right : .left) : (dy > 0 ? .down : .up))
+        previousTranslation = drag.translation
     }
 }
 

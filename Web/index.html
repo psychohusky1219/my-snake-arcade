@@ -52,20 +52,50 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
 .primary{background:var(--mint);color:#15311d;padding:12px 23px;border-radius:12px;font-size:15px;font-weight:900}
 .info{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:#a9c0c5}
 #hint{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#wrap-status{color:#baf57b;white-space:nowrap}
-.controls{display:grid;grid-template-columns:1fr auto 1fr;gap:7px;align-items:center;min-height:109px}
-.action{background:#273e49;border:1px solid #45626d;padding:11px 8px;border-radius:11px;max-width:106px;width:100%;font-weight:800;font-size:12px;text-align:center;justify-self:center}
-.pad{display:flex;flex-direction:column;align-items:center;gap:5px}
-.pad-row{display:flex;gap:5px}
-.arrow{display:grid;place-items:center;background:#2b4952;border:1px solid #53717a;border-radius:12px;width:clamp(51px,17vw,67px);height:clamp(43px,12vw,51px);font-size:27px;font-weight:900;line-height:1}
+.controls{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;align-items:center;flex-shrink:0}
+.action{background:#273e49;border:1px solid #45626d;padding:4px 2px;border-radius:10px;max-width:44px;width:44px;height:44px;font-weight:800;font-size:9px;line-height:1.35;text-align:center;justify-self:center}
+.pad{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:240px;justify-self:center}
+.pad-row{display:flex;gap:6px;width:100%}
+.arrow{display:grid;place-items:center;background:#2b4952;border:1px solid #53717a;border-radius:14px;width:calc((100% - 12px)/3);height:auto;aspect-ratio:1;flex:none;font-size:clamp(28px,8vw,34px);font-weight:900;line-height:1;padding:0}
 .arrow:active{background:#4b8167}
 .footer{text-align:center;font-size:10px;color:#8ba7af;min-height:13px}
 .toast{position:absolute;top:calc(env(safe-area-inset-top) + 54px);left:50%;transform:translateX(-50%) translateY(-8px);opacity:0;pointer-events:none;z-index:8;background:#d0fa9c;color:#173425;padding:9px 15px;border-radius:20px;white-space:nowrap;font-size:13px;font-weight:900;transition:opacity .2s,transform .2s;box-shadow:0 7px 28px #0006}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-@media(max-height:650px){.shell{gap:5px}.controls{min-height:95px}.arrow{height:38px;width:50px}.stat{padding:5px 6px}.footer{display:none}.top{min-height:28px}}
-@media(max-height:510px){.controls{min-height:78px}.arrow{height:31px;width:44px;font-size:22px}.info{display:none}}
+@media(max-height:650px){.shell{gap:5px}.pad{max-width:216px}.stat{padding:5px 6px}.footer{display:none}.top{min-height:28px}}
+@media(max-height:510px){.pad{max-width:180px}.arrow{font-size:28px}.info{display:none}}
 @media(orientation:landscape) and (max-height:600px){
 .menu-card{max-width:720px;padding:12px 20px;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:center}.logo{font-size:36px;grid-column:1}.kicker{grid-column:1}h1{grid-column:1;font-size:35px}.sub{grid-column:1;font-size:12px;margin:8px}.play{grid-column:2;grid-row:1 / span 3}.legend{grid-column:2;grid-row:4;margin:0;gap:5px}.legend span{font-size:10px;padding:6px}.private{grid-column:1 / span 2;margin-top:8px}.install-note{grid-column:1 / span 2;margin-top:4px}
-.shell{max-width:980px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.9fr);grid-template-rows:36px 56px 1fr auto;gap:6px 16px;padding-left:calc(env(safe-area-inset-left) + 14px);padding-right:calc(env(safe-area-inset-right) + 14px)}.stage{grid-column:1;grid-row:1 / -1}.top{grid-column:2;grid-row:1}.stats{grid-column:2;grid-row:2}.controls{grid-column:2;grid-row:3;min-height:0}.info{grid-column:2;grid-row:4;display:flex;font-size:10px}.footer{display:none}.arrow{width:48px;height:39px}.action{font-size:11px;padding:10px 4px}
+.shell{max-width:980px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.9fr);grid-template-rows:36px 56px 1fr auto;gap:6px 16px;padding-left:calc(env(safe-area-inset-left) + 14px);padding-right:calc(env(safe-area-inset-right) + 14px)}.stage{grid-column:1;grid-row:1 / -1}.top{grid-column:2;grid-row:1}.stats{grid-column:2;grid-row:2}.controls{grid-column:2;grid-row:3;min-height:0}.info{grid-column:2;grid-row:4;display:flex;font-size:10px}.footer{display:none}.pad{max-width:204px}.arrow{font-size:30px}
+}
+
+/* Control selection is made before Play; only the chosen controller is shown. */
+.control-choice{border:0;padding:0;margin:0 auto 18px;max-width:300px;min-width:0}
+.control-choice legend{width:100%;margin-bottom:8px;color:var(--muted);font-size:9px;font-weight:850;letter-spacing:1.8px}
+.mode-options{display:flex;gap:8px}
+.mode-option{flex:1;min-height:48px;padding:10px 7px;border-radius:12px;background:#263f48;border:1px solid #48636b;font-size:13px;font-weight:800}
+.mode-option[aria-pressed="true"]{background:var(--mint);border-color:var(--mint);color:#122c1c}
+#control-note{font-size:11px;line-height:1.4;color:var(--muted);margin:9px 0 0;min-height:31px}
+.control-surface[hidden]{display:none!important}
+.touch-pad{position:relative;justify-self:center;width:100%;max-width:320px;height:158px;border-radius:18px;border:1.5px solid #7ba66b;background:radial-gradient(ellipse at center,#2b4649,#1f353f);touch-action:none;overscroll-behavior:none;overflow:hidden;cursor:crosshair}
+.touch-pad.active{border-color:var(--mint);box-shadow:0 0 0 2px #b9f57b25}
+.touch-pad *{pointer-events:none}
+.touch-label{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;color:#c1ea9b}
+.touch-label strong{font-size:10px;letter-spacing:1.6px}.touch-label span{font-size:12px;color:#b9ccbf}
+.touch-arrow{position:absolute;font-size:23px;font-weight:800;color:#a5d68a}
+.touch-up{top:8px;left:50%;transform:translateX(-50%)}.touch-down{bottom:8px;left:50%;transform:translateX(-50%)}
+.touch-left{left:12px;top:50%;transform:translateY(-50%)}.touch-right{right:12px;top:50%;transform:translateY(-50%)}
+.touch-dot{display:none;position:absolute;width:24px;height:24px;border-radius:50%;background:#c4f79488;transform:translate(-50%,-50%)}
+.touch-pad.active .touch-dot{display:block}
+/* The menu may scroll on unusually short screens. The game never does. */
+#menu{overflow-y:auto;overscroll-behavior:contain}
+@media(orientation:portrait) and (max-height:740px){.menu-card{padding:17px}.logo{font-size:44px}.sub{margin:10px auto 14px}.legend{margin:14px 0 10px}.control-choice{margin-bottom:12px}.private{margin-top:10px}}
+@media(max-height:650px){.touch-pad{height:142px}}
+@media(orientation:landscape) and (max-height:600px){
+ .menu-card{grid-template-areas:"logo choice" "kicker choice" "title play" "sub legend" "private private" "install install";gap:5px 18px;align-items:center}
+ .logo{grid-area:logo}.kicker{grid-area:kicker}h1{grid-area:title}.sub{grid-area:sub}
+ .control-choice{grid-area:choice;width:100%;margin:0}.play{grid-area:play}.legend{grid-area:legend}
+ .private{grid-area:private}.install-note{grid-area:install}.touch-pad{height:138px}
+ #control-note{font-size:10px;min-height:26px;margin-top:5px}.mode-option{min-height:44px;padding:7px 4px}
 }
 </style>
 </head>
@@ -77,6 +107,14 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
    <div class="kicker">MY SNAKE ARCADE</div>
    <h1>SNAKE<span>.</span></h1>
    <p class="sub">One apple. One level up. Faster every point.<br>Catch a rare rat to multiply your score by <strong style="color:#baf57b">5×</strong>.</p>
+   <fieldset class="control-choice">
+    <legend>CHOOSE YOUR CONTROLS</legend>
+    <div class="mode-options">
+     <button type="button" class="mode-option" id="choose-arrows" aria-pressed="true">✚ Arrow Pad</button>
+     <button type="button" class="mode-option" id="choose-touch" aria-pressed="false">☝ Touch Pad</button>
+    </div>
+    <p id="control-note">Steer with the large directional buttons.</p>
+   </fieldset>
    <button class="play" id="play">TAP TO PLAY ⛶</button>
    <div class="legend"><span>🍎 +1 point</span><span>🐀 Score ×5</span><span>↔ Through walls</span></div>
    <div class="private">Free to play · No ads · Scores stay on your device</div>
@@ -98,13 +136,19 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
    <div class="info"><div id="hint">Swipe or use arrows</div><div id="wrap-status">↔ Wall wrap ON</div></div>
    <div class="controls">
     <button class="action" id="pause">Pause ⏸</button>
-    <div class="pad" aria-label="Direction controls">
+    <div id="arrow-pad" class="pad control-surface" aria-label="Direction controls">
      <button class="arrow" data-dir="up" aria-label="Up">↑</button>
      <div class="pad-row">
       <button class="arrow" data-dir="left" aria-label="Left">←</button>
       <button class="arrow" data-dir="down" aria-label="Down">↓</button>
       <button class="arrow" data-dir="right" aria-label="Right">→</button>
      </div>
+    </div>
+    <div id="touch-pad" class="touch-pad control-surface" role="group" aria-label="Touch pad. Swipe here to steer, not on the game board." hidden>
+     <span class="touch-arrow touch-up">↑</span><span class="touch-arrow touch-left">←</span>
+     <div class="touch-label"><strong>TOUCH PAD</strong><span>Swipe here</span></div>
+     <span class="touch-arrow touch-right">→</span><span class="touch-arrow touch-down">↓</span>
+     <span id="touch-dot" class="touch-dot"></span>
     </div>
     <button class="action" id="restart">Restart ↻</button>
    </div>
@@ -123,6 +167,22 @@ const direction={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
 let snake=[],food=null,heading=direction.right,turns=[],score=0n,level=1n,best=0n,apples=0,sinceRat=0,mode='menu',timeout=null,lastTime=0,ratRemaining=0,fullscreenRequested=false,toastTimer=null;
 try{const saved=localStorage.getItem('my-private-snake-best-v1')||'0';if(/^\d+$/.test(saved))best=BigInt(saved)}catch(_){}
 get('best').textContent=best;
+const touchPad=get('touch-pad');
+let controlMode='arrows';
+try{if(localStorage.getItem('my-snake-control-mode-v1')==='touch')controlMode='touch'}catch(_){}
+function selectControlMode(value){
+ if(mode!=='menu')return;
+ controlMode=value==='touch'?'touch':'arrows';
+ try{localStorage.setItem('my-snake-control-mode-v1',controlMode)}catch(_){}
+ get('choose-arrows').setAttribute('aria-pressed',String(controlMode==='arrows'));
+ get('choose-touch').setAttribute('aria-pressed',String(controlMode==='touch'));
+ get('arrow-pad').hidden=controlMode!=='arrows';
+ touchPad.hidden=controlMode!=='touch';
+ get('control-note').textContent=controlMode==='touch'?'Swipe on the separate pad, not the game board.':'Steer with the large directional buttons.';
+}
+get('choose-arrows').addEventListener('click',()=>selectControlMode('arrows'));
+get('choose-touch').addEventListener('click',()=>selectControlMode('touch'));
+selectControlMode(controlMode);
 function rand(max){return Math.floor(Math.random()*max)}
 function place(type='apple'){
  const free=[];
@@ -134,7 +194,7 @@ function millis(){return Math.max(53,Math.round(210/(1+Number(score>1000n?1000n:
 function update(){
  get('score').textContent=score;get('level').textContent=level;get('best').textContent=best;
  if(food&&food.type==='rat')get('hint').textContent='🐀 Rat bonus! '+Math.ceil(ratRemaining/1000)+'s left · Score ×5';
- else get('hint').textContent='⚡ '+(1000/millis()).toFixed(1)+' moves/sec · Swipe or use arrows';
+ else get('hint').textContent='⚡ '+(1000/millis()).toFixed(1)+' moves/sec · '+(controlMode==='touch'?'Swipe on touch pad':'Use arrow pad');
 }
 function rectangle(x,y,w,h,r,color){
  r=Math.min(r,w/2,h/2);ctx.fillStyle=color;ctx.beginPath();
@@ -181,11 +241,11 @@ function reset(){
 function cancelTick(){if(timeout!==null){clearTimeout(timeout);timeout=null}}
 function schedule(){cancelTick();if(mode==='running')timeout=setTimeout(tick,millis())}
 function start(){
- cancelTick();mode='running';reset();get('overlay').classList.add('hidden');schedule();
+ finishTouch();cancelTick();mode='running';reset();get('overlay').classList.add('hidden');schedule();
 }
 function announce(message){const el=get('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1600)}
 function over(win){
- update();cancelTick();mode=win?'won':'over';
+ finishTouch();update();cancelTick();mode=win?'won':'over';
  get('overlay-emoji').textContent=win?'🏆':'💥';get('overlay-title').textContent=win?'You win!':'Game over';
  get('overlay-sub').textContent='Score: '+score+' · Level: '+level;
  get('overlay-button').textContent='Play again ↻';get('overlay').classList.remove('hidden');
@@ -228,7 +288,7 @@ function turn(name){
 }
 function pause(){
  if(mode==='running'){
-  mode='paused';cancelTick();
+  finishTouch();mode='paused';cancelTick();
   get('overlay-emoji').textContent='⏸';get('overlay-title').textContent='Paused';
   get('overlay-sub').textContent='Your game is on hold';get('overlay-button').textContent='Resume ▶';
   get('overlay').classList.remove('hidden');get('pause').textContent='Resume ▶';
@@ -252,7 +312,7 @@ function play(){
  enterFullscreen();resize();start();
 }
 function closeGame(){
- cancelTick();mode='menu';game.classList.remove('active');menu.classList.remove('hidden');
+ finishTouch();cancelTick();mode='menu';game.classList.remove('active');menu.classList.remove('hidden');
  get('toast').classList.remove('show');
  fullscreenRequested=false;
  if(document.fullscreenElement){try{document.exitFullscreen()}catch(_){}}
@@ -264,22 +324,31 @@ get('restart').addEventListener('click',()=>{get('pause').textContent='Pause ⏸
 get('overlay-button').addEventListener('click',()=>{if(mode==='paused')pause();else{get('pause').textContent='Pause ⏸';start()}});
 for(const b of document.querySelectorAll('[data-dir]')){b.addEventListener('pointerdown',e=>{e.preventDefault();turn(b.dataset.dir)});b.addEventListener('click',e=>{if(e.detail===0)turn(b.dataset.dir)})}
 let pointer=null,lastX=0,lastY=0;
+function finishTouch(){
+ const id=pointer;pointer=null;touchPad.classList.remove('active');
+ if(id!==null){try{if(touchPad.hasPointerCapture(id))touchPad.releasePointerCapture(id)}catch(_){}}
+}
 function steer(x,y){
- if(pointer===null)return;
+ if(pointer===null||controlMode!=='touch'||mode!=='running')return;
+ const rect=touchPad.getBoundingClientRect();
+ get('touch-dot').style.left=Math.min(Math.max(12,x-rect.left),rect.width-12)+'px';
+ get('touch-dot').style.top=Math.min(Math.max(12,y-rect.top),rect.height-12)+'px';
  const dx=x-lastX,dy=y-lastY;
  if(Math.max(Math.abs(dx),Math.abs(dy))<13)return;
  turn(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));
  lastX=x;lastY=y;
 }
-field.addEventListener('pointerdown',e=>{
- if(e.target.closest('button'))return;
+touchPad.addEventListener('pointerdown',e=>{
+ if(mode!=='running'||controlMode!=='touch'||pointer!==null||!e.isPrimary||e.button!==0)return;
  e.preventDefault();pointer=e.pointerId;lastX=e.clientX;lastY=e.clientY;
- try{field.setPointerCapture(pointer)}catch(_){}
+ touchPad.classList.add('active');steer(lastX,lastY);
+ try{touchPad.setPointerCapture(pointer)}catch(_){}
 });
-field.addEventListener('pointermove',e=>{if(pointer!==e.pointerId)return;e.preventDefault();steer(e.clientX,e.clientY)});
-field.addEventListener('pointerup',e=>{if(pointer===e.pointerId){steer(e.clientX,e.clientY);pointer=null}});
-field.addEventListener('pointercancel',()=>{pointer=null});
-// Prevent a swipe on the game board from moving the browser page.
+touchPad.addEventListener('pointermove',e=>{if(pointer!==e.pointerId)return;e.preventDefault();steer(e.clientX,e.clientY)});
+touchPad.addEventListener('pointerup',e=>{if(pointer===e.pointerId){steer(e.clientX,e.clientY);finishTouch()}});
+touchPad.addEventListener('pointercancel',e=>{if(pointer===e.pointerId)finishTouch()});
+touchPad.addEventListener('lostpointercapture',e=>{if(pointer===e.pointerId)finishTouch()});
+touchPad.addEventListener('contextmenu',e=>e.preventDefault());
 game.addEventListener('touchmove',e=>{if(e.cancelable)e.preventDefault()},{passive:false});
 window.addEventListener('keydown',e=>{
  if(mode==='menu')return;
