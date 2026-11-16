@@ -49,6 +49,12 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
 .field canvas{display:block;width:100%;height:100%;touch-action:none;overscroll-behavior:none}
 .overlay{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;background:#071620d9;backdrop-filter:blur(3px);padding:10px;text-align:center;z-index:5}
 .overlay.hidden{display:none}.overlay-emoji{font-size:43px}.overlay-title{font-size:25px;font-weight:950;margin:7px 0}.overlay-sub{font-size:13px;color:#afc3c6;margin:7px 0 20px}
+.overlay.shield-recovery{inset:6px 6px auto;display:block;padding:8px;background:#10232bf2;backdrop-filter:none;border:1px solid #79e9ff;border-radius:10px;box-shadow:0 3px 12px #0005}
+.overlay.shield-recovery.hidden{display:none}
+.shield-recovery>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;align-items:center;text-align:left}
+.shield-recovery .overlay-emoji{display:none}.shield-recovery .overlay-title{font-size:15px;margin:0;color:#79e9ff}
+.shield-recovery .overlay-sub{grid-column:1;font-size:11px;line-height:1.35;margin:0}
+.shield-recovery .primary{grid-column:2;grid-row:1 / span 2;padding:8px 10px;font-size:11px}
 .primary{background:var(--mint);color:#15311d;padding:12px 23px;border-radius:12px;font-size:15px;font-weight:900}
 .info{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:#a9c0c5}
 #hint{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#wrap-status{color:#baf57b;white-space:nowrap}
@@ -111,6 +117,7 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
 #run-mode{display:block;font-size:9px;color:#a9c0c5;letter-spacing:1.7px;margin-top:2px}
 #game[data-mode="survivor"] #run-mode{color:#ffcf82}
 #wrap-status.hazard{color:#ffb179}
+#wrap-status.shield{color:#79e9ff}.field.shield-active{border-color:#79e9ff;box-shadow:0 0 0 2px #143b48,0 0 22px #58daff40}
 .menu-card{margin:auto;flex-shrink:0}.logo{font-size:43px}.sub{margin:10px auto 14px}.legend{margin:14px 0 10px}.private{margin-top:10px}
 @media(orientation:portrait) and (max-height:780px){.menu-card{padding:15px 18px}.logo{font-size:33px}.kicker{font-size:9px}h1{font-size:35px}.sub{font-size:12px;margin:8px auto 12px}.game-choice{margin-bottom:12px}.control-choice{margin-bottom:10px}.legend{margin:10px 0 7px}.install-note{margin-top:7px}.game-option{min-height:58px}}
 @media(orientation:landscape) and (max-height:600px){
@@ -134,7 +141,7 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
     <div class="game-options">
      <button type="button" class="game-option" id="mode-classic" aria-pressed="true"><span>Classic</span><small>Original</small></button>
      <button type="button" class="game-option" id="mode-survivor" aria-pressed="false"><span>Survivor</span><small>Obstacles 10+</small></button>
-     <button type="button" class="game-option" id="mode-speed" aria-pressed="false"><span>Speed Run</span><small>More rats · 42×42</small></button>
+     <button type="button" class="game-option" id="mode-speed" aria-pressed="false"><span>Speed Run</span><small>Food field · Blue birds</small></button>
      <button type="button" class="game-option" id="mode-endless" aria-pressed="false"><span>Endless</span><small>Scroll · Eat · Survive</small></button>
     </div>
     <p id="game-note">The original game. No obstacles, wall wrap and 5× rats.</p>
@@ -205,25 +212,27 @@ try{const saved=localStorage.getItem('my-private-snake-best-v1')||'0';if(/^\d+$/
 get('best').textContent=best;
 let gameMode='classic',obstacles=[],obstacleSet=new Set(),collisionCause=null;
 let endlessFoods=[],scrollRows=0,endlessSteer=0;
+let speedFoods=[],shieldRemaining=0,shieldRecovery=false;
 try{const saved=localStorage.getItem('my-snake-game-mode-v1');if(Object.hasOwn(MODE_SIZES,saved))gameMode=saved}catch(_){}
 function bestKey(){return gameMode==='classic'?'my-private-snake-best-v1':'my-snake-'+gameMode+'-best-v1'}
 function selectGameMode(value){
  if(mode!=='menu'||!Object.hasOwn(MODE_SIZES,value))return;
+ if(value!==gameMode){shieldRemaining=0;shieldRecovery=false;speedFoods=[]}
  gameMode=value;
  try{localStorage.setItem('my-snake-game-mode-v1',value);const saved=localStorage.getItem(bestKey())||'0';best=/^\d+$/.test(saved)?BigInt(saved):0n}catch(_){best=0n}
  get('mode-classic').setAttribute('aria-pressed',String(value==='classic'));
  get('mode-survivor').setAttribute('aria-pressed',String(value==='survivor'));
  get('mode-speed').setAttribute('aria-pressed',String(value==='speedRun'));
  get('mode-endless').setAttribute('aria-pressed',String(value==='endless'));
- const notes={classic:'24×24 · Apples advance level. Rats multiply score and speed, not level.',survivor:'34×34 · Levels 1–9 clear. Obstacles: 5% at level 10, +5 percentage points per level, 100% at 29+. Hit a block and the run ends.',speedRun:'42×42 · More rats: 45% after three apples. Score & speed ×5, level unchanged. No timer.',endless:'Scroll upward. Left/right steer; up/down go straight. Food adds one segment, a block removes one. Survive until no segments remain.'};
+ const notes={classic:'24×24 · Apples advance level. Rats multiply score and speed, not level.',survivor:'34×34 · Levels 1–9 clear. Obstacles: 5% at level 10, +5 percentage points per level, 100% at 29+. Hit a block and the run ends.',speedRun:'42×42 · Apples, rats and blue birds stay until eaten. Blue birds shield you for 10 active seconds or one hit.',endless:'Scroll upward. Left/right steer; up/down go straight. Food adds one segment, a block removes one. Survive until no segments remain.'};
  get('game-note').textContent=notes[value];
  for(const button of document.querySelectorAll('[data-dir]')){
   const d=button.dataset.dir;
   button.setAttribute('aria-label',value==='endless'?(d==='left'?'Steer diagonally up-left':d==='right'?'Steer diagonally up-right':'Go straight ahead'):d[0].toUpperCase()+d.slice(1));
  }
- get('mode-legend').innerHTML=value==='endless'?'<span>🍎🐀 +1 segment</span><span>■ −1 segment</span><span>↑ Keep moving</span>':'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span>↔ Through walls</span>';
+ get('mode-legend').innerHTML=value==='endless'?'<span>🍎🐀 +1 segment</span><span>■ −1 segment</span><span>↑ Keep moving</span>':value==='speedRun'?'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span style="color:#79e9ff">Blue bird · 1-hit shield</span>':'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span>↔ Through walls</span>';
  get('level-label').textContent=value==='endless'?'LENGTH':'LEVEL';
- get('game-footer').textContent=value==='endless'?'Food +1 · Block −1 · Rats accelerate faster · × to exit':'🐀 Rat lasts 8 seconds · Speed capped at 30 moves/sec · × to exit';
+ get('game-footer').textContent=value==='endless'?'Food +1 · Block −1 · Rats accelerate faster · × to exit':value==='speedRun'?'12 pickups · Blue bird: 10 seconds or 1 hit · Speed capped at 30':'🐀 Rat lasts 8 seconds · Speed capped at 30 moves/sec · × to exit';
  const title=MODE_TITLES[value].toUpperCase();
  get('play').textContent='PLAY '+title+' ⛶';
  get('run-mode').textContent=title;
@@ -257,6 +266,17 @@ function place(type='apple'){
  for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++)if(!occupied.has(y*COUNT+x))free.push({x,y});
  if(!free.length)return null;
  return {...free[rand(free.length)],type};
+}
+function fillSpeedFoods(initial=false,random=Math.random){
+ const occupied=new Set([...snake.map(p=>p.y*COUNT+p.x),...obstacleSet,...speedFoods.map(p=>p.y*COUNT+p.x)]),free=[];
+ for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++)if(!occupied.has(y*COUNT+x))free.push({x,y});
+ const mix=['apple','apple','apple','apple','apple','apple','rat','rat','rat','rat','rat','blueBird'];
+ while(speedFoods.length<12&&free.length){
+  const cell=free.splice(Math.floor(random()*free.length),1)[0];
+  const roll=initial?0:random();
+  const type=initial?mix[speedFoods.length]:roll<.45?'apple':roll<.90?'rat':'blueBird';
+  speedFoods.push({...cell,type});
+ }
 }
 function openCellsConnected(blocked,start){
  const key=p=>p.y*COUNT+p.x,seen=new Set([key(start)]),pending=[start];
@@ -295,7 +315,12 @@ function update(){
  get('score').textContent=score;get('level').textContent=gameMode==='endless'?snake.length:level;get('best').textContent=best;
  get('wrap-status').textContent=gameMode==='endless'?'↑ Endless ascent':gameMode==='survivor'?(obstacles.length?'⚠ Obstacle level':'✓ Clear level'):'↔ Wall wrap ON';
  get('wrap-status').classList.toggle('hazard',obstacles.length>0);
+ const shielded=gameMode==='speedRun'&&shieldRemaining>0;
+ get('wrap-status').classList.toggle('shield',shielded);
+ field.classList.toggle('shield-active',shielded);
+ if(shielded)get('wrap-status').textContent='◈ '+(shieldRemaining/1000).toFixed(1)+'s · 1 hit';
  if(food&&food.type==='rat')get('hint').textContent='🐀 '+Math.ceil(ratRemaining/1000)+'s left · Score & speed ×5';
+ else if(gameMode==='speedRun'&&shieldRecovery)get('hint').textContent='Choose a direction, then Resume';
  else get('hint').textContent='⚡ '+(1000/millis()).toFixed(1)+' moves/sec · '+(controlMode==='touch'?'Swipe on touch pad':'Use arrow pad');
 }
 function rectangle(x,y,w,h,r,color){
@@ -323,20 +348,29 @@ function render(){
   ctx.strokeStyle='#ffcf82';ctx.lineWidth=1.1;ctx.strokeRect(x+3,y+3,14,14);
   ctx.strokeStyle='#683b2d';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+6,y+6);ctx.lineTo(x+14,y+14);ctx.moveTo(x+14,y+6);ctx.lineTo(x+6,y+14);ctx.stroke();
  }
- for(const item of gameMode==='endless'?endlessFoods:(food?[food]:[])){
+ for(const item of gameMode==='endless'?endlessFoods:gameMode==='speedRun'?speedFoods:(food?[food]:[])){
   const x=item.x*20+10,y=item.y*20+10;
   ctx.shadowBlur=13;
   if(item.type==='rat'){
     ctx.shadowColor='#ffd58a';
     ctx.font='19px "Apple Color Emoji","Segoe UI Emoji",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('🐀',x,y+1);ctx.shadowBlur=0;
-    if(gameMode!=='endless'){ctx.strokeStyle='#ffd98b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,9,-Math.PI/2,-Math.PI/2+Math.PI*2*(ratRemaining/8000));ctx.stroke();}
+    if(gameMode!=='endless'&&gameMode!=='speedRun'){ctx.strokeStyle='#ffd98b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,9,-Math.PI/2,-Math.PI/2+Math.PI*2*(ratRemaining/8000));ctx.stroke();}
+  }else if(item.type==='blueBird'){
+    // Draw an unmistakably blue bird independently of platform emoji colors.
+    ctx.shadowColor='#5edbff';ctx.fillStyle='#57caff';ctx.beginPath();ctx.ellipse(x-1,y+1,6.5,4.8,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(x+4,y-3,3.8,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle='#2378e7';ctx.beginPath();ctx.ellipse(x-2,y,4,2.5,-.5,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.moveTo(x-5,y+1);ctx.lineTo(x-10,y-3);ctx.lineTo(x-8,y+5);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#ffd978';ctx.beginPath();ctx.moveTo(x+7,y-4);ctx.lineTo(x+11,y-2);ctx.lineTo(x+7,y-1);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#102b45';ctx.beginPath();ctx.arc(x+5,y-4,1,0,Math.PI*2);ctx.fill();
   }else{
     ctx.shadowColor='#ff6372';ctx.fillStyle='#ff5d70';ctx.beginPath();ctx.arc(x,y+1,7,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
     ctx.fillStyle='#baf28e';ctx.beginPath();ctx.ellipse(x+3,y-7,3,1.8,-.65,0,Math.PI*2);ctx.fill();
   }
  }
- snake.forEach((p,i)=>{if(p.y>=0&&p.y<COUNT)rectangle(p.x*20+1,p.y*20+1,18,18,i===0?6:5,i===0?'#e0ffac':i%2?'#86d16e':'#a2e879')});
+ const shielded=gameMode==='speedRun'&&shieldRemaining>0;
+ snake.forEach((p,i)=>{if(p.y>=0&&p.y<COUNT)rectangle(p.x*20+1,p.y*20+1,18,18,i===0?6:5,shielded?(i===0?'#d4faff':i%2?'#54c7f0':'#84e5ff'):(i===0?'#e0ffac':i%2?'#86d16e':'#a2e879'))});
  if(snake.length){
   const h=snake[0],x=h.x*20,y=h.y*20;
   const eyes=heading.x!==0?[[heading.x>0?14:6,5],[heading.x>0?14:6,14]]:[[5,heading.y>0?14:6],[14,heading.y>0?14:6]];
@@ -358,24 +392,27 @@ function reset(){
  heading=gameMode==='endless'?direction.up:direction.right;turns=[];
  obstacles=[];obstacleSet.clear();collisionCause=null;
  scrollRows=0;endlessSteer=0;endlessFoods=[];
+ speedFoods=[];shieldRemaining=0;shieldRecovery=false;
  score=0n;level=1n;speed=gameMode==='endless'?5:INITIAL_SPEED;apples=0;sinceRat=0;ratRemaining=0;
- if(gameMode==='endless'){food=null;endlessFoods=[{x:mid,y:headY-4,type:'apple'}]}else food=place('apple');
+ if(gameMode==='endless'){food=null;endlessFoods=[{x:mid,y:headY-4,type:'apple'}]}
+ else if(gameMode==='speedRun'){food=null;fillSpeedFoods(true)}else food=place('apple');
  lastTime=performance.now();update();render();
 }
 function cancelTick(){if(timeout!==null){clearTimeout(timeout);timeout=null}}
 function schedule(){cancelTick();if(mode==='running')timeout=setTimeout(tick,millis())}
 function start(){
- finishTouch();cancelTick();mode='running';reset();get('overlay').classList.add('hidden');schedule();
+ finishTouch();cancelTick();mode='running';reset();get('overlay').classList.remove('shield-recovery');get('overlay').classList.add('hidden');schedule();
 }
 function announce(message){const el=get('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1600)}
 function over(win){
- finishTouch();update();cancelTick();mode=win?'won':'over';
+ finishTouch();shieldRecovery=false;update();cancelTick();mode=win?'won':'over';
+ get('overlay').classList.remove('shield-recovery');
  get('overlay-emoji').textContent=win?'🏆':'💥';get('overlay-title').textContent=win?'You win!':collisionCause==='obstacle'?'Obstacle hit!':'Game over';
  get('overlay-sub').textContent='Score: '+score+(gameMode==='endless'?' · Length: '+snake.length:' · Level: '+level);
  get('overlay-button').textContent='Play again ↻';get('overlay').classList.remove('hidden');
 }
 function nextFood(){
- const isRat=apples>=3&&Math.random()<(gameMode==='speedRun'?.45:.18);
+ const isRat=apples>=3&&Math.random()<.18;
  if(isRat){sinceRat=0;ratRemaining=8000;food=place('rat');announce('🐀 RAT! SCORE & SPEED ×5');}
  else{food=place('apple');ratRemaining=0;}
  if(!food){over(true);return false}
@@ -428,47 +465,72 @@ function tickEndless(){
 function tick(){
  if(mode!=='running')return;
  if(gameMode==='endless'){tickEndless();return}
- const now=performance.now(),dt=Math.max(0,Math.min(now-lastTime,1200));lastTime=now;
- if(food&&food.type==='rat'){
+ const now=performance.now(),elapsed=now-lastTime,safeElapsed=Number.isFinite(elapsed)?Math.max(0,elapsed):0,dt=Math.min(safeElapsed,1200);lastTime=now;
+ if(gameMode==='speedRun')shieldRemaining=Math.max(0,shieldRemaining-safeElapsed);
+ if(gameMode!=='speedRun'&&food&&food.type==='rat'){
   ratRemaining-=dt;
   if(ratRemaining<=0){ratRemaining=0;food={...food,type:'apple'};}
  }
  if(turns.length)heading=turns.shift();
  const head={x:(snake[0].x+heading.x+COUNT)%COUNT,y:(snake[0].y+heading.y+COUNT)%COUNT};
- const eating=food&&head.x===food.x&&head.y===food.y;
- if(obstacleSet.has(head.y*COUNT+head.x)){collisionCause='obstacle';over(false);return}
- if((eating?snake:snake.slice(0,-1)).some(p=>p.x===head.x&&p.y===head.y)){collisionCause='body';over(false);return}
+ const eaten=gameMode==='speedRun'?speedFoods.find(p=>p.x===head.x&&p.y===head.y):(food&&head.x===food.x&&head.y===food.y?food:null);
+ const growing=eaten&&eaten.type!=='blueBird';
+ const collision=obstacleSet.has(head.y*COUNT+head.x)?'obstacle':(growing?snake:snake.slice(0,-1)).some(p=>p.x===head.x&&p.y===head.y)?'body':null;
+ if(collision){
+  if(gameMode==='speedRun'&&shieldRemaining>0){useShield();return}
+  collisionCause=collision;over(false);return;
+ }
  snake.unshift(head);
- if(eating){
-  const ateApple=food.type==='apple';
-  if(food.type==='rat'){
+ if(!growing)snake.pop();
+ if(eaten){
+  const ateApple=eaten.type==='apple';
+  if(eaten.type==='blueBird'){
+   shieldRemaining=10000;announce('BLUE BIRD · 10-SECOND / 1-HIT SHIELD');
+  }else if(eaten.type==='rat'){
    score*=5n;speed=Math.min(MAX_SPEED,speed*5);announce('🐀 RAT! SCORE & SPEED ×5 · LEVEL UNCHANGED');ratRemaining=0;
   }else{score+=1n;apples+=1;sinceRat+=1;level=BigInt(apples)+1n;speed=Math.min(MAX_SPEED,speed+APPLE_SPEED_GAIN);}
   saveBest();
   const hadObstacles=obstacles.length>0;
-  if(ateApple)refreshObstacles();
-  if(!nextFood()){render();return}
+  if(gameMode==='speedRun'){
+   speedFoods=speedFoods.filter(p=>p!==eaten);fillSpeedFoods();
+   if(!speedFoods.length){over(true);render();return}
+  }else{
+   if(ateApple)refreshObstacles();
+   if(!nextFood()){render();return}
+  }
   if(ateApple&&gameMode==='survivor'&&level>=10n){
    if(obstacles.length)announce('⚠ LEVEL '+level+' · AVOID THE BLOCKS');
    else if(hadObstacles)announce('✓ LEVEL '+level+' · CLEAR BOARD');
   }
- }else snake.pop();
+ }
  update();render();schedule();
 }
+function useShield(){
+ finishTouch();cancelTick();shieldRemaining=0;shieldRecovery=true;turns=[];mode='paused';
+ get('overlay-emoji').textContent='◈';get('overlay-title').textContent='Shield used';
+ get('overlay-sub').textContent='Choose a direction on your pad, then Resume.';
+ get('overlay-button').textContent='Resume ▶';get('pause').textContent='Resume ▶';
+ get('overlay').classList.add('shield-recovery');get('overlay').classList.remove('hidden');update();render();
+}
+function canSteer(){return mode==='running'||(mode==='paused'&&gameMode==='speedRun'&&shieldRecovery)}
 function turn(name){
- if(mode!=='running'||!direction[name])return;
+ if(!canSteer()||!direction[name])return;
  if(gameMode==='endless'){endlessSteer=name==='left'?-1:name==='right'?1:0;return}
  const d=direction[name],last=turns.length?turns[turns.length-1]:heading;
- if(turns.length<2&&(d.x!==last.x||d.y!==last.y)&&(d.x!==-last.x||d.y!==-last.y))turns.push(d);
+ if(turns.length<2&&(d.x!==last.x||d.y!==last.y)&&(d.x!==-last.x||d.y!==-last.y)){
+  turns.push(d);
+  if(shieldRecovery)get('overlay-sub').textContent='Queued: '+turns.map(t=>{const name=Object.keys(direction).find(key=>direction[key]===t);return name[0].toUpperCase()+name.slice(1)}).join(' → ')+'. Tap Resume.';
+ }
 }
 function pause(){
  if(mode==='running'){
-  finishTouch();mode='paused';cancelTick();
+  finishTouch();shieldRecovery=false;mode='paused';cancelTick();
+  get('overlay').classList.remove('shield-recovery');
   get('overlay-emoji').textContent='⏸';get('overlay-title').textContent='Paused';
   get('overlay-sub').textContent='Your game is on hold';get('overlay-button').textContent='Resume ▶';
   get('overlay').classList.remove('hidden');get('pause').textContent='Resume ▶';
  }else if(mode==='paused'){
-  mode='running';lastTime=performance.now();get('overlay').classList.add('hidden');
+  finishTouch();shieldRecovery=false;mode='running';lastTime=performance.now();get('overlay').classList.remove('shield-recovery');get('overlay').classList.add('hidden');
   get('pause').textContent='Pause ⏸';schedule();
  }
 }
@@ -488,6 +550,8 @@ function play(){
 }
 function closeGame(){
  finishTouch();cancelTick();mode='menu';game.classList.remove('active');menu.classList.remove('hidden');
+ shieldRemaining=0;shieldRecovery=false;
+ get('overlay').classList.remove('shield-recovery');
  get('toast').classList.remove('show');
  fullscreenRequested=false;
  if(document.fullscreenElement){try{document.exitFullscreen()}catch(_){}}
@@ -504,7 +568,7 @@ function finishTouch(){
  if(id!==null){try{if(touchPad.hasPointerCapture(id))touchPad.releasePointerCapture(id)}catch(_){}}
 }
 function steer(x,y){
- if(pointer===null||controlMode!=='touch'||mode!=='running')return;
+ if(pointer===null||controlMode!=='touch'||!canSteer())return;
  const rect=touchPad.getBoundingClientRect();
  get('touch-dot').style.left=Math.min(Math.max(12,x-rect.left),rect.width-12)+'px';
  get('touch-dot').style.top=Math.min(Math.max(12,y-rect.top),rect.height-12)+'px';
@@ -514,7 +578,7 @@ function steer(x,y){
  lastX=x;lastY=y;
 }
 touchPad.addEventListener('pointerdown',e=>{
- if(mode!=='running'||controlMode!=='touch'||pointer!==null||!e.isPrimary||e.button!==0)return;
+ if(!canSteer()||controlMode!=='touch'||pointer!==null||!e.isPrimary||e.button!==0)return;
  e.preventDefault();pointer=e.pointerId;lastX=e.clientX;lastY=e.clientY;
  touchPad.classList.add('active');steer(lastX,lastY);
  try{touchPad.setPointerCapture(pointer)}catch(_){}

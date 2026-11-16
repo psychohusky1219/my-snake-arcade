@@ -6,6 +6,7 @@ private enum ArcadeTheme {
     static let panel = Color(red: 0.105, green: 0.175, blue: 0.205)
     static let lime = Color(red: 0.72, green: 0.95, blue: 0.47)
     static let gold = Color(red: 1, green: 0.79, blue: 0.47)
+    static let cyan = Color(red: 0.28, green: 0.88, blue: 1)
     static let secondary = Color(red: 0.62, green: 0.73, blue: 0.76)
 }
 
@@ -145,6 +146,12 @@ private struct SnakeMenuView: View {
             Text("Speed limit: 30 moves/sec")
                 .font(.system(size: 10))
                 .foregroundStyle(ArcadeTheme.secondary)
+            if session.selectedMode == .speedRun {
+                Text("Blue bird: shield for 10 seconds or one hit")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(ArcadeTheme.cyan)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: 360)
     }
@@ -174,7 +181,7 @@ private struct SnakeMenuView: View {
         case .survivor:
             return "28×28 · Levels 1–9 are clear. Obstacle chance: 5% at level 10, then +5 percentage points per level; 100% at 29+. Blocks end the run."
         case .speedRun:
-            return "35×35 · More rats: 45% after three apples. Wall wrap, no timer or obstacles. Rats keep your level unchanged."
+            return "35×35 · Twelve pickups: apples, rats and blue birds. They stay until eaten. Rats are available immediately; birds protect without changing score, length or level."
         case .endless:
             return "20×20 · Climb with 5 segments. Food adds 1; each block hit takes 1. Left/right steer; up/down straighten. Side edges stop sideways movement."
         }
@@ -184,7 +191,7 @@ private struct SnakeMenuView: View {
         switch mode {
         case .classic: return "20×20 · Original"
         case .survivor: return "28×28 · Obstacles 10+"
-        case .speedRun: return "35×35 · More rats"
+        case .speedRun: return "35×35 · Birds & more food"
         case .endless: return "20×20 · Keep climbing"
         }
     }
@@ -283,7 +290,9 @@ private struct SnakePlayView: View {
                     status
                     Spacer(minLength: 0)
                     controls(buttonSide: arrowSide)
-                    Text(session.engine.mode == .endless
+                    Text(session.engine.shieldRecovery
+                         ? "Choose a direction on your pad, then Resume"
+                         : session.engine.mode == .endless
                          ? "← / → steer · ↑ / ↓ go straight upward"
                          : (useTouchPad ? "Swipe on the touch pad below the board" : "Use the arrow pad to steer"))
                         .font(.system(size: 10))
@@ -360,7 +369,9 @@ private struct SnakePlayView: View {
         ZStack {
             SnakeBoardCanvas(engine: session.engine)
                 .accessibilityLabel("Snake playfield. Use the separate controls to steer.")
-            if session.engine.phase != .running {
+            if session.engine.shieldRecovery {
+                shieldRecoveryOverlay
+            } else if session.engine.phase != .running {
                 gameOverlay
             }
         }
@@ -368,6 +379,32 @@ private struct SnakePlayView: View {
         .background(ArcadeTheme.board)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(ArcadeTheme.lime.opacity(0.4), lineWidth: 1.5))
+    }
+
+    private var shieldRecoveryOverlay: some View {
+        VStack {
+            VStack(spacing: 6) {
+                Label("SHIELD USED", systemImage: "shield.lefthalf.filled")
+                    .font(.system(size: 14, weight: .black, design: .rounded))
+                    .foregroundStyle(ArcadeTheme.cyan)
+                Text("Choose a direction on your pad, then Resume.")
+                    .font(.system(size: 11, weight: .medium))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Resume", action: session.resume)
+                    .font(.system(size: 13, weight: .bold))
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(ArcadeTheme.background)
+                    .background(ArcadeTheme.cyan, in: RoundedRectangle(cornerRadius: 10))
+                    .buttonStyle(.plain)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity)
+            .background(ArcadeTheme.background.opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
+            .padding(6)
+            Spacer(minLength: 0)
+        }
     }
 
     private var gameOverlay: some View {
@@ -412,7 +449,11 @@ private struct SnakePlayView: View {
 
     private var status: some View {
         HStack(spacing: 6) {
-            if !session.lastReward.isEmpty {
+            if session.engine.mode == .speedRun, session.engine.shieldSecondsRemaining > 0 {
+                Label("\(Int(ceil(session.engine.shieldSecondsRemaining)))s · 1 HIT", systemImage: "shield.fill")
+                    .foregroundStyle(ArcadeTheme.cyan)
+                    .accessibilityLabel("Shield active, \(Int(ceil(session.engine.shieldSecondsRemaining))) seconds or one hit remaining")
+            } else if !session.lastReward.isEmpty {
                 Text(session.lastReward)
                     .foregroundStyle(session.lastReward.hasPrefix("−") ? ArcadeTheme.gold : ArcadeTheme.lime)
             } else if session.engine.mode != .endless, let food = session.engine.food, food.kind == .rat {
@@ -426,6 +467,8 @@ private struct SnakePlayView: View {
             if session.engine.mode == .survivor {
                 Text(session.engine.obstacles.isEmpty ? "Clear level" : "⚠ Obstacle level")
                     .foregroundStyle(session.engine.obstacles.isEmpty ? ArcadeTheme.lime : ArcadeTheme.gold)
+            } else if session.engine.shieldRecovery {
+                Text("Paused").foregroundStyle(ArcadeTheme.cyan)
             } else if session.engine.mode == .endless {
                 Text("↑ Keep climbing").foregroundStyle(ArcadeTheme.lime)
             } else {
@@ -456,7 +499,7 @@ private struct SnakePlayView: View {
                 if useTouchPad {
                     SnakeTouchPad(onTurn: session.turn, isEndless: session.engine.mode == .endless)
                         .id(session.engine.phase == .running)
-                        .allowsHitTesting(session.engine.phase == .running)
+                        .allowsHitTesting(session.engine.phase == .running || session.engine.shieldRecovery)
                         .frame(height: buttonSide * 2 + 6)
                 } else {
                     VStack(spacing: 6) {
@@ -627,7 +670,8 @@ private struct SnakeBoardCanvas: View {
                 context.stroke(cross, with: .color(ArcadeTheme.background.opacity(0.6)), lineWidth: max(1, cellSize * 0.08))
             }
 
-            let visibleFoods: [Food] = engine.mode == .endless ? engine.endlessFoods : (engine.food.map { [$0] } ?? [])
+            let visibleFoods: [Food] = engine.mode == .endless ? engine.endlessFoods
+                : engine.mode == .speedRun ? engine.speedRunFoods : (engine.food.map { [$0] } ?? [])
             for food in visibleFoods {
                 let center = CGPoint(x: (CGFloat(food.cell.x) + 0.5) * cellSize,
                                      y: (CGFloat(food.cell.y) + 0.5) * cellSize)
@@ -637,6 +681,8 @@ private struct SnakeBoardCanvas: View {
                     context.fill(Path(roundedRect: rect, cornerRadius: cellSize * 0.2),
                                  with: .color(ArcadeTheme.gold.opacity(0.22)))
                     context.draw(Text("🐀").font(.system(size: cellSize * 0.94)), at: center)
+                } else if food.kind == .blueBird {
+                    drawBlueBird(in: context, center: center, cellSize: cellSize)
                 } else {
                     let rect = CGRect(x: center.x - cellSize * 0.33, y: center.y - cellSize * 0.25,
                                       width: cellSize * 0.66, height: cellSize * 0.66)
@@ -655,7 +701,11 @@ private struct SnakeBoardCanvas: View {
                                   width: cellSize - inset * 2, height: cellSize - inset * 2)
                 let color = index == 0 ? Color(red: 0.86, green: 1, blue: 0.66)
                     : (index.isMultiple(of: 2) ? ArcadeTheme.lime : Color(red: 0.49, green: 0.80, blue: 0.40))
-                context.fill(Path(roundedRect: rect, cornerRadius: cellSize * 0.24), with: .color(color))
+                let segment = Path(roundedRect: rect, cornerRadius: cellSize * 0.24)
+                context.fill(segment, with: .color(color))
+                if engine.mode == .speedRun, engine.shieldSecondsRemaining > 0 {
+                    context.stroke(segment, with: .color(ArcadeTheme.cyan), lineWidth: max(1, cellSize * 0.16))
+                }
             }
             if let head = engine.body.first {
                 let cx = (CGFloat(head.x) + 0.5) * cellSize
@@ -674,5 +724,34 @@ private struct SnakeBoardCanvas: View {
             }
         }
         .drawingGroup(opaque: true)
+    }
+
+    // Draw the pickup in code so it stays visibly blue on every iPhone.
+    private func drawBlueBird(in context: GraphicsContext, center: CGPoint, cellSize: CGFloat) {
+        let blue = Color(red: 0.12, green: 0.56, blue: 1)
+        let body = CGRect(x: center.x - cellSize * 0.32, y: center.y - cellSize * 0.12,
+                          width: cellSize * 0.57, height: cellSize * 0.48)
+        var tail = Path()
+        tail.move(to: CGPoint(x: center.x - cellSize * 0.22, y: center.y + cellSize * 0.03))
+        tail.addLine(to: CGPoint(x: center.x - cellSize * 0.48, y: center.y - cellSize * 0.16))
+        tail.addLine(to: CGPoint(x: center.x - cellSize * 0.4, y: center.y + cellSize * 0.28))
+        tail.closeSubpath()
+        context.fill(tail, with: .color(blue))
+        context.fill(Path(ellipseIn: body), with: .color(blue))
+        let wing = CGRect(x: center.x - cellSize * 0.24, y: center.y - cellSize * 0.02,
+                          width: cellSize * 0.31, height: cellSize * 0.24)
+        context.fill(Path(ellipseIn: wing), with: .color(ArcadeTheme.cyan))
+        let head = CGRect(x: center.x + cellSize * 0.02, y: center.y - cellSize * 0.35,
+                          width: cellSize * 0.36, height: cellSize * 0.37)
+        context.fill(Path(ellipseIn: head), with: .color(blue))
+        var beak = Path()
+        beak.move(to: CGPoint(x: center.x + cellSize * 0.33, y: center.y - cellSize * 0.21))
+        beak.addLine(to: CGPoint(x: center.x + cellSize * 0.49, y: center.y - cellSize * 0.12))
+        beak.addLine(to: CGPoint(x: center.x + cellSize * 0.33, y: center.y - cellSize * 0.07))
+        beak.closeSubpath()
+        context.fill(beak, with: .color(ArcadeTheme.gold))
+        let eye = CGRect(x: center.x + cellSize * 0.21, y: center.y - cellSize * 0.25,
+                         width: cellSize * 0.065, height: cellSize * 0.065)
+        context.fill(Path(ellipseIn: eye), with: .color(.white))
     }
 }

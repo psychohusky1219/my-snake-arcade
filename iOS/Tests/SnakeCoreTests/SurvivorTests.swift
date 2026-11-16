@@ -199,15 +199,18 @@ final class SurvivorTests: XCTestCase {
         for mode in [GameMode.classic,.speedRun] {
             for seed in 1...500 {
                 var game=SnakeEngine(body:[Cell(x:3,y:3),Cell(x:2,y:3)],
-                    food:Food(cell:Cell(x:4,y:3),kind:.apple),applesEaten:3,mode:mode)
+                    food:mode == .speedRun ? nil : Food(cell:Cell(x:4,y:3),kind:.apple),applesEaten:3,mode:mode,
+                    speedRunFoods:mode == .speedRun ? [Food(cell:Cell(x:4,y:3),kind:.apple)] : [])
                 var rng=SurvivorRNG(state:UInt64(seed))
                 game.tick(elapsed:0.1,using:&rng)
-                if game.food?.kind == .rat { counts[mode,default:0] += 1 }
+                let spawned = mode == .speedRun ? game.speedRunFoods.first : game.food
+                if spawned?.kind == .rat { counts[mode,default:0] += 1 }
             }
         }
         XCTAssertGreaterThan(counts[.speedRun]!, counts[.classic]! * 3 / 2)
         var game=SnakeEngine(body:[Cell(x:3,y:3),Cell(x:2,y:3)],
-            food:Food(cell:Cell(x:4,y:3),kind:.rat,secondsRemaining:8),score:ArcadeScore("7"),applesEaten:3,mode:.speedRun)
+            food:nil,score:ArcadeScore("7"),applesEaten:3,mode:.speedRun,
+            speedRunFoods:[Food(cell:Cell(x:4,y:3),kind:.rat)])
         var rng=SurvivorRNG(state:8)
         XCTAssertEqual(game.tick(elapsed:0.1,using:&rng),.rat)
         XCTAssertEqual(game.score.digits,"35")

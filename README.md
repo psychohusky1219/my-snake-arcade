@@ -12,15 +12,27 @@ choices stay on the device; browser and native records remain separate.
 | --- | --- | --- | --- |
 | Classic | 20×20 | 24×24 | Original grid, wall wrapping, body collision ends the run. |
 | Survivor | 28×28 | 34×34 | Approximately twice the original cell count; obstacle chance 5% at level 10, +5 percentage points each level, 100% at level 29 onward. |
-| Speed Run | 35×35 | 42×42 | Approximately three times the original cell count; more rats, no timer or obstacles. |
+| Speed Run | 35×35 | 42×42 | Twelve persistent pickups, frequent rats and blue bird shields; no run timer or obstacles. |
 | Endless | 20×20 view | 24×24 view | Scrolling upward survival; food adds length, obstacle contacts remove length. |
 
 Classic, Survivor and Speed Run start with three segments. Apples add one point,
 one segment, one level and a small speed increment. Rats multiply current score
 and current speed by five and add one segment, but do not change level. Speed
 caps at 30 moves/sec. Each edition retains its original opening and apple pace.
-Rats become eligible after three apples: 18% chance in Classic/Survivor and 45%
-in Speed Run, with an eight-second active-play lifetime.
+In Classic/Survivor, rats become eligible after three apples, with an 18% chance
+and an eight-second active-play lifetime. Speed Run rats are available immediately
+and stay on the board until eaten.
+
+Speed Run starts with twelve pickups: six apples, five rats and one blue bird.
+Only the collected pickup is replaced; the others keep their positions and never
+expire. Replacements have a 45% apple, 45% rat and 10% blue bird chance. Crowded
+boards use only the available free cells. Apples and rats keep the rules above.
+A blue bird is a shield pickup, with no score, growth, level or speed change.
+Its shield lasts ten active-play seconds or one collision, whichever happens
+first. Another bird refreshes it to ten seconds without stacking charges.
+The countdown freezes while paused. A shielded collision cancels the fatal move,
+uses the shield and pauses the game without losing segments. Choose a direction
+on the arrow/touch pad, then Resume; a later unshielded collision is fatal.
 
 Survivor replaces its obstacle layout on each apple level. Clear rolls remove
 old obstacles; rats do not reroll. Placement avoids the snake, food, the area

@@ -44,7 +44,8 @@ final class SnakeSession: ObservableObject {
     func play() {
         isGameVisible = true
         if hasPausedGame {
-            resume()
+            // Shield recovery reopens with its steering prompt still paused.
+            if !engine.shieldRecovery { resume() }
         } else {
             newGame()
         }
@@ -62,7 +63,10 @@ final class SnakeSession: ObservableObject {
     }
 
     func turn(_ direction: Direction) {
-        engine.turn(direction)
+        if engine.turn(direction), engine.shieldRecovery {
+            lastReward = "\(String(describing: direction).uppercased()) QUEUED · TAP RESUME"
+            rewardTicks = 0
+        }
     }
 
     func togglePause() {
@@ -77,7 +81,9 @@ final class SnakeSession: ObservableObject {
 
     func resume() {
         guard engine.phase == .paused else { return }
+        let wasRecovering = engine.shieldRecovery
         engine.resume()
+        if wasRecovering { lastReward = ""; rewardTicks = 0 }
         startLoop()
     }
 
@@ -95,6 +101,7 @@ final class SnakeSession: ObservableObject {
         stopLoop()
         UIApplication.shared.isIdleTimerDisabled = true
         loopTask = Task { @MainActor [weak self] in
+            var lastTickTime = ProcessInfo.processInfo.systemUptime
             while !Task.isCancelled {
                 guard self?.engine.phase == .running,
                       let interval = self?.engine.movementInterval else { return }
@@ -102,7 +109,9 @@ final class SnakeSession: ObservableObject {
                     try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 } catch { return }
                 guard !Task.isCancelled else { return }
-                self?.advance(by: interval)
+                let tickTime = ProcessInfo.processInfo.systemUptime
+                self?.advance(by: tickTime - lastTickTime)
+                lastTickTime = tickTime
             }
         }
     }
@@ -133,6 +142,14 @@ final class SnakeSession: ObservableObject {
                 : "5× SCORE & SPEED · LEVEL \(engine.level.compact)"
             rewardTicks = 20
             if hapticsEnabled { notification.notificationOccurred(.success) }
+        case .blueBird:
+            lastReward = "BLUE BIRD · SHIELD READY"
+            rewardTicks = 20
+            if hapticsEnabled { notification.notificationOccurred(.success) }
+        case .shielded:
+            lastReward = "SHIELD USED · CHOOSE A DIRECTION"
+            rewardTicks = 0
+            if hapticsEnabled { notification.notificationOccurred(.warning) }
         case .damaged:
             lastReward = "−1 SEGMENT · LENGTH \(engine.body.count)"
             rewardTicks = 12

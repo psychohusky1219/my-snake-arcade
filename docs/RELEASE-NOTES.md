@@ -1,15 +1,13 @@
-# My Snake — four playable modes (unsigned iPhone build)
+# My Snake 4.1 — Speed Run food field and blue bird shields
 
-- Classic and Survivor: rats multiply the current score and speed by five without changing level. Apples advance level normally. Speed is independent of score and capped at 30 moves per second for responsiveness.
-- Survivor: larger 28×28 native grid (34×34 browser). Levels 1–9 stay clear. Level 10 has a 5% obstacle chance, increasing by five percentage points each level to 100% at level 29. Each new apple level replaces the layout; rats leave it alone. Obstacle hits end the run.
-- Speed Run is playable: 35×35 native grid (42×42 browser), 45% rat chance after three apples versus 18% in Classic/Survivor. Same rat score/speed rule, no timer or obstacles.
-- New Endless: upward travel through a downward-scrolling world. Start with five segments; every apple or rat adds one segment and one point. Each obstacle contact removes one segment and consumes that obstacle group. Zero segments ends the run. Apples add 0.12 moves/sec; rats add 0.36, capped at 30.
-- Endless left/right steer diagonally; up/down straighten. Side edges stop lateral movement, body crossings are allowed, and the camera follows the head. The length display includes the tail outside the view.
-- Classic grids, saved Classic/Survivor best scores, app identity, and remembered Arrow Pad/Touch Pad choice are preserved. Each of the four modes has its own local best score. Swipes stay on the separate touch pad.
-- Offline play, compact Pause/Restart, large arrows, and X-to-menu remain. No ads, game telemetry, or paid services were added.
+- Speed Run now starts with 12 pickups: six apples, five rats and one blue bird. They stay where they are until eaten, including rats; there is no food expiry timer in this mode.
+- Eating a pickup replaces only that item. Replacements are 45% apples, 45% rats and 10% blue birds; crowded boards use the remaining available cells.
+- Blue birds grant one shield for 10 active-play seconds or one collision, whichever happens first. A new bird refreshes the timer to 10 seconds without stacking shields. Birds do not change score, length, level or speed.
+- A shielded collision cancels the fatal move, consumes the shield and pauses the game. Choose a direction with your selected pad, then Resume. No segments are lost, and the same collision cannot kill you before you have a chance to steer.
+- A cyan snake highlight and countdown show when the shield is active. Pausing or backgrounding freezes its timer; restarting or changing modes clears it.
+- Classic, Survivor and Endless retain their previous rules. The selected grid sizes, independent score/level/speed, saved scores, remembered controls and app identity are preserved.
+- Browser and native iPhone editions both include this update. No ads, game telemetry, paid services or signing credentials were added.
 
-The larger grids approximate two or three times the original total number of cells; they do not multiply each dimension. Snake segments look smaller without reducing the initial three-segment arcade snake.
-
-**This IPA is unsigned.** Update through Sideloadly using the same Apple account and bundle-ID settings as your installed game. Keep the existing app installed to preserve its data. This release is a native Swift/SwiftUI device build, not a web wrapper or source ZIP. Physical-iPhone testing remains necessary.
+**This IPA is unsigned.** Update through Sideloadly using the same Apple account and bundle-ID settings as your installed game. Keep the existing app installed to preserve its data. This is a compiled native Swift/SwiftUI iPhone app. Physical-iPhone testing remains necessary.
 
 Browser game: https://my-snake-arcade.vercel.app/

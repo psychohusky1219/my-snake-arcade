@@ -47,7 +47,7 @@ function session(saved = {}) {
   });
   vm.runInContext(fixtureScript, context, { filename: 'Web/index.html' });
   const run = source => context.fixture(source);
-  const tick = () => { now += run('millis()'); run('tick()'); };
+  const tick = (elapsed = run('millis()')) => { now += elapsed; run('tick()'); };
   return { run, tick, element, storage, timers };
 }
 
@@ -62,6 +62,7 @@ for (const gameMode of ['classic', 'survivor', 'speedRun']) {
   test(`${gameMode}: rat multiplies current score and speed, preserves level/layout`, () => {
     const game = session();
     game.run(`selectGameMode('${gameMode}'); start(); snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}]; heading=direction.right; food={x:3,y:2,type:'rat'}; ratRemaining=8000; score=7n; apples=9; level=10n; speed=4; obstacles=[{x:20,y:20}]; obstacleSet=new Set([20*COUNT+20]);`);
+    if(gameMode==='speedRun')game.run('speedFoods=[food];food=null');
     game.tick();
     assert.equal(game.run('score'), 35n);
     assert.equal(game.run('level'), 10n);
@@ -73,6 +74,7 @@ for (const gameMode of ['classic', 'survivor', 'speedRun']) {
   test(`${gameMode}: apple advances one level independently of multiplied score`, () => {
     const game = session();
     game.run(`selectGameMode('${gameMode}'); start(); snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}]; food={x:3,y:2,type:'apple'}; score=625n; apples=3; level=4n; speed=8;`);
+    if(gameMode==='speedRun')game.run('speedFoods=[food];food=null');
     game.tick();
     assert.equal(game.run('score'), 626n);
     assert.equal(game.run('level'), 5n);
@@ -189,7 +191,7 @@ test('Survivor obstacle collision is fatal, including wrap crossings', () => {
   assert.equal(game.run('collisionCause'), 'obstacle');
 });
 
-test('rat eligibility is three apples and Speed Run uses a higher chance', () => {
+test('Classic rat eligibility stays at three apples and Speed Run replacements include rats immediately', () => {
   const game = session();
   game.run("start();apples=2;Math.random=()=>0;nextFood()");
   assert.equal(game.run('food.type'), 'apple');
@@ -197,10 +199,13 @@ test('rat eligibility is three apples and Speed Run uses a higher chance', () =>
   assert.equal(game.run('food.type'), 'rat');
   game.run('Math.random=()=>.18;nextFood()');
   assert.equal(game.run('food.type'), 'apple');
-  game.run("mode='menu';selectGameMode('speedRun');start();apples=3;Math.random=()=>.449;nextFood()");
-  assert.equal(game.run('food.type'), 'rat');
-  game.run('Math.random=()=>.45;nextFood()');
-  assert.equal(game.run('food.type'), 'apple');
+  game.run("mode='menu';selectGameMode('speedRun');start();speedFoods=[];fillSpeedFoods(false,()=>.45)");
+  assert.equal(game.run('apples'), 0);
+  assert.equal(game.run("speedFoods.every(p=>p.type==='rat')"), true);
+  game.run('speedFoods=[];fillSpeedFoods(false,()=>.449)');
+  assert.equal(game.run("speedFoods.every(p=>p.type==='apple')"), true);
+  game.run('speedFoods=[];fillSpeedFoods(false,()=>.9)');
+  assert.equal(game.run("speedFoods.every(p=>p.type==='blueBird')"), true);
 });
 
 test('rat expiry becomes an apple in the same safe cell', () => {
@@ -331,10 +336,170 @@ test('Endless gradual acceleration stops at the shared responsiveness cap', () =
   assert.equal(game.run('speed'), 30);
 });
 
+test('Speed Run starts with twelve unique persistent pickups including immediate rats and one blue bird', () => {
+  const game=session();game.run("selectGameMode('speedRun');start()");
+  assert.equal(game.run('speedFoods.length'),12);
+  assert.equal(game.run("speedFoods.filter(p=>p.type==='apple').length"),6);
+  assert.equal(game.run("speedFoods.filter(p=>p.type==='rat').length"),5);
+  assert.equal(game.run("speedFoods.filter(p=>p.type==='blueBird').length"),1);
+  assert.equal(game.run('new Set(speedFoods.map(p=>p.y*COUNT+p.x)).size'),12);
+  assert.equal(game.run('speedFoods.some(p=>snake.some(s=>s.x===p.x&&s.y===p.y)||obstacleSet.has(p.y*COUNT+p.x))'),false);
+  assert.equal(game.run('food'),null);
+  assert.equal(game.run('apples'),0);
+});
+
+test('untouched Speed Run pickups keep their position and type after nine seconds and another pickup is eaten', () => {
+  const game=session();
+  game.run("selectGameMode('speedRun');start();snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}];speedFoods=Array.from({length:12},(_,x)=>({x,y:0,type:x===0?'apple':x===1?'blueBird':'rat'}))");
+  const before=game.run('JSON.stringify(speedFoods)');game.tick(9000);
+  assert.equal(game.run('JSON.stringify(speedFoods)'),before);
+  game.run('snake=[{x:0,y:1},{x:0,y:2},{x:0,y:3}];heading=direction.up');
+  const untouched=JSON.parse(game.run('JSON.stringify(speedFoods.slice(1))'));
+  game.tick();
+  assert.equal(game.run('speedFoods.length'),12);
+  assert.deepEqual(JSON.parse(game.run('JSON.stringify(speedFoods.slice(0,11))')),untouched);
+  assert.equal(game.run('speedFoods.some(p=>snake.some(s=>s.x===p.x&&s.y===p.y))'),false);
+});
+
+test('Speed Run pool respects crowded boards and distinguishes a full-board win from a bird pickup', () => {
+  for(const kind of ['apple','blueBird']){
+    const game=session();
+    game.run("selectGameMode('speedRun');start();COUNT=4;CELL=120;snake=[{x:2,y:3},...Array.from({length:16},(_,i)=>({x:i%4,y:Math.floor(i/4)})).filter(p=>!(p.x===2&&p.y===3)&&!(p.x===3&&p.y===3))];speedFoods=[];fillSpeedFoods(false,()=>0)");
+    assert.equal(game.run('speedFoods.length'),1);
+    game.run(`speedFoods[0].type='${kind}'`);game.tick();
+    assert.equal(game.run('snake.length'),kind==='apple'?16:15);
+    assert.equal(game.run('mode'),kind==='apple'?'won':'running');
+    assert.equal(game.run('speedFoods.length'),kind==='apple'?0:1);
+  }
+});
+
+test('a blue bird grants a full shield without changing score, level, length or speed', () => {
+  const game=session();
+  game.run("selectGameMode('speedRun');start();snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}];speedFoods=[{x:3,y:2,type:'blueBird'}];score=20n;apples=9;level=10n;speed=6");
+  game.tick();
+  assert.equal(game.run('shieldRemaining'),10000);
+  assert.equal(game.run('score'),20n);
+  assert.equal(game.run('level'),10n);
+  assert.equal(game.run('apples'),9);
+  assert.equal(game.run('speed'),6);
+  assert.equal(game.run('snake.length'),3);
+  assert.equal(game.element('wrap-status').classList.contains('shield'),true);
+  assert.equal(game.element('field').classList.contains('shield-active'),true);
+  assert.match(game.element('wrap-status').textContent,/10\.0s.*1 hit/);
+});
+
+test('shield time is ten active seconds, pauses freeze it and a new bird refreshes without stacking', () => {
+  const game=session();
+  game.run("selectGameMode('speedRun');start();speedFoods=[];shieldRemaining=10000");
+  game.tick(3000);assert.equal(game.run('shieldRemaining'),7000);
+  game.run('pause()');game.tick(50000);assert.equal(game.run('shieldRemaining'),7000);
+  game.run('pause()');game.tick(2000);assert.equal(game.run('shieldRemaining'),5000);
+  game.run("speedFoods=[{x:(snake[0].x+1)%COUNT,y:snake[0].y,type:'blueBird'}]");
+  game.tick(1000);assert.equal(game.run('shieldRemaining'),10000);
+  game.run('speedFoods=[]');game.tick(10000);
+  assert.equal(game.run('shieldRemaining'),0);
+  assert.equal(game.element('field').classList.contains('shield-active'),false);
+});
+
+const collisionFixture="snake=[{x:2,y:2},{x:2,y:3},{x:3,y:3},{x:3,y:2},{x:4,y:2}];heading=direction.right;speedFoods=[{x:20,y:20,type:'rat'}];shieldRemaining=10000;turns=[]";
+
+test('one protected body collision consumes the shield, cancels movement and pauses safely', () => {
+  const game=session();game.run(`selectGameMode('speedRun');start();${collisionFixture}`);
+  const body=game.run('JSON.stringify(snake)'),pool=game.run('JSON.stringify(speedFoods)');
+  game.tick();
+  assert.equal(game.run('mode'),'paused');
+  assert.equal(game.run('shieldRecovery'),true);
+  assert.equal(game.run('shieldRemaining'),0);
+  assert.equal(game.run('JSON.stringify(snake)'),body);
+  assert.equal(game.run('JSON.stringify(speedFoods)'),pool);
+  assert.equal(game.run('turns.length'),0);
+  assert.equal(game.run('timeout'),null);
+  assert.equal(game.element('overlay-title').textContent,'Shield used');
+  assert.equal(game.element('overlay').classList.contains('shield-recovery'),true);
+  assert.match(game.element('overlay-sub').textContent,/Choose a direction.*Resume/);
+  game.tick();assert.equal(game.run('JSON.stringify(snake)'),body);
+});
+
+test('recovery arrow input can choose a safe route and Resume applies it', () => {
+  const game=session();game.run(`selectGameMode('speedRun');start();${collisionFixture}`);game.tick();
+  game.element('arrow-up').fire('pointerdown');
+  assert.equal(game.run('turns.length'),1);
+  assert.equal(game.element('overlay-sub').textContent,'Queued: Up. Tap Resume.');
+  game.element('overlay-button').fire('click');
+  assert.equal(game.run('shieldRecovery'),false);
+  assert.equal(game.element('overlay').classList.contains('shield-recovery'),false);
+  game.tick();
+  assert.equal(game.run('mode'),'running');
+  assert.equal(game.run('snake[0].x'),2);
+  assert.equal(game.run('snake[0].y'),1);
+});
+
+test('recovery touch-pad steering works, while normal paused input remains inert', () => {
+  const game=session();game.run(`selectGameMode('speedRun');selectControlMode('touch');start();${collisionFixture}`);game.tick();
+  game.element('touch-pad').fire('pointerdown',{pointerId:1,isPrimary:true,button:0,clientX:50,clientY:70});
+  game.element('touch-pad').fire('pointermove',{pointerId:1,clientX:50,clientY:40});
+  game.element('touch-pad').fire('pointerup',{pointerId:1,clientX:50,clientY:40});
+  assert.equal(game.run('turns.length'),1);
+  game.run('pause()');game.tick();assert.equal(game.run('snake[0].y'),1);
+  game.run('pause()');
+  game.element('arrow-left').fire('pointerdown');
+  assert.equal(game.run('turns.length'),0);
+  game.element('touch-pad').fire('pointerdown',{pointerId:2,isPrimary:true,button:0,clientX:50,clientY:70});
+  game.element('touch-pad').fire('pointermove',{pointerId:2,clientX:20,clientY:70});
+  assert.equal(game.run('turns.length'),0);
+});
+
+test('resuming into the same collision is lethal after the one shield charge is used', () => {
+  const game=session();game.run(`selectGameMode('speedRun');start();${collisionFixture}`);game.tick();
+  game.run('pause()');game.tick();
+  assert.equal(game.run('mode'),'over');
+  assert.equal(game.run('collisionCause'),'body');
+  assert.equal(game.run('shieldRecovery'),false);
+});
+
+test('shield expires at the exact collision deadline and rejects negative or nonfinite elapsed', () => {
+  for(const elapsed of [999,1000]){
+    const game=session();game.run(`selectGameMode('speedRun');start();${collisionFixture};shieldRemaining=1000`);game.tick(elapsed);
+    assert.equal(game.run('mode'),elapsed===999?'paused':'over');
+  }
+  for(const elapsed of [-100,Number.NaN,Number.POSITIVE_INFINITY]){
+    const game=session();game.run("selectGameMode('speedRun');start();speedFoods=[];shieldRemaining=1000");game.tick(elapsed);
+    assert.equal(game.run('shieldRemaining'),1000);
+  }
+});
+
+test('fixture obstacle collision uses the shield but a Classic collision cannot use it', () => {
+  for(const gameMode of ['speedRun','classic']){
+    const game=session();game.run(`selectGameMode('${gameMode}');start();snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}];food=null;speedFoods=[];obstacles=[{x:3,y:2}];obstacleSet=new Set([2*COUNT+3]);shieldRemaining=10000`);game.tick();
+    assert.equal(game.run('mode'),gameMode==='speedRun'?'paused':'over');
+  }
+});
+
+test('bird pickup on the vacating tail is legal and non-growing', () => {
+  const game=session();
+  game.run("selectGameMode('speedRun');start();snake=[{x:2,y:2},{x:2,y:3},{x:3,y:3},{x:3,y:2}];speedFoods=[{x:3,y:2,type:'blueBird'}];heading=direction.right");game.tick();
+  assert.equal(game.run('mode'),'running');
+  assert.equal(game.run('snake.length'),4);
+  assert.equal(game.run('new Set(snake.map(p=>p.y*COUNT+p.x)).size'),4);
+  assert.equal(game.run('shieldRemaining'),10000);
+});
+
+test('restart and mode changes cannot transfer shields or recovery state', () => {
+  const game=session();game.run(`selectGameMode('speedRun');start();${collisionFixture}`);game.tick();
+  game.run('start()');
+  assert.equal(game.run('shieldRemaining'),0);
+  assert.equal(game.run('shieldRecovery'),false);
+  assert.equal(game.run('speedFoods.length'),12);
+  game.run("shieldRemaining=7000;closeGame();selectGameMode('classic');start()");
+  assert.equal(game.run('shieldRemaining'),0);
+  assert.equal(game.run('speedFoods.length'),0);
+  assert.equal(game.run('food.type'),'apple');
+});
+
 {
   const worker = fs.readFileSync(fileURLToPath(new URL('../Web/sw.js', import.meta.url)), 'utf8');
   const handlers = new Map();
-  const cacheData = new Map([['my-snake-survivor-v4',new Map()],['unrelated-cache',new Map()]]);
+  const cacheData = new Map([['my-snake-four-modes-v5',new Map()],['unrelated-cache',new Map()]]);
   const caches = {
     async open(name) {
       if (!cacheData.has(name)) cacheData.set(name, new Map());
@@ -353,9 +518,9 @@ test('Endless gradual acceleration stops at the shared responsiveness cap', () =
   let pending;
   handlers.get('install')({waitUntil:value=>{pending=value}});await pending;
   handlers.get('activate')({waitUntil:value=>{pending=value}});await pending;
-  assert.equal(cacheData.has('my-snake-survivor-v4'),false);
+  assert.equal(cacheData.has('my-snake-four-modes-v5'),false);
   assert.equal(cacheData.has('unrelated-cache'),true);
-  assert.ok(cacheData.get('my-snake-four-modes-v5').has('./index.html'));
+  assert.ok(cacheData.get('my-snake-speed-birds-v6').has('./index.html'));
   handlers.get('fetch')({request:{method:'GET',url:'https://snake.test/?source=homescreen',mode:'navigate'},respondWith:value=>{pending=value}});
   assert.equal((await pending).cached,'./index.html');
   passed++;console.log('PASS service worker upgrades its own cache and serves the game offline');

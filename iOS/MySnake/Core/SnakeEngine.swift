@@ -13,7 +13,7 @@ public enum Direction: CaseIterable, Sendable {
     }
 }
 
-public enum FoodKind: Sendable { case apple, rat }
+public enum FoodKind: Sendable { case apple, rat, blueBird }
 public struct Food: Equatable, Sendable {
     public let cell: Cell
     public let kind: FoodKind
@@ -43,7 +43,7 @@ public enum GameMode: String, CaseIterable, Sendable {
 public enum CollisionCause: Sendable { case body, obstacle }
 
 public enum GamePhase: Sendable { case ready, running, paused, gameOver, won }
-public enum GameEvent: Sendable { case none, moved, apple, rat, damaged, collision, won }
+public enum GameEvent: Sendable { case none, moved, apple, rat, blueBird, shielded, damaged, collision, won }
 
 public struct GameRules: Sendable {
     public var ratChance: Double
@@ -63,6 +63,7 @@ public struct SnakeEngine {
     public static let initialMovesPerSecond = 1 / 0.195
     public static let maximumMovesPerSecond = 30.0
     public static let appleSpeedIncrement = 0.048 / 0.195
+    public static let speedRunPickupTarget = 12
     public private(set) var boardSize: Int
     public let rules: GameRules
     public private(set) var body: [Cell]
@@ -73,6 +74,9 @@ public struct SnakeEngine {
     public private(set) var ratsEaten = 0
     public private(set) var movesPerSecond = SnakeEngine.initialMovesPerSecond
     public private(set) var endlessFoods: [Food] = []
+    public private(set) var speedRunFoods: [Food] = []
+    public private(set) var shieldSecondsRemaining = 0.0
+    public private(set) var shieldRecovery = false
     public private(set) var scrollRows = 0
     public private(set) var phase: GamePhase = .ready
     public private(set) var mode: GameMode = .classic
@@ -96,7 +100,9 @@ public struct SnakeEngine {
          phase: GamePhase = .running, rules: GameRules = GameRules(),
          mode: GameMode = .classic, obstacles: Set<Cell> = [],
          movesPerSecond: Double = SnakeEngine.initialMovesPerSecond,
-         endlessFoods: [Food] = [], scrollRows: Int = 0, endlessSteering: Int = 0) {
+         endlessFoods: [Food] = [], scrollRows: Int = 0, endlessSteering: Int = 0,
+         speedRunFoods: [Food] = [], shieldSecondsRemaining: Double = 0,
+         shieldRecovery: Bool = false) {
         precondition(boardSize >= 4 && boardSize <= 100)
         precondition(!body.isEmpty && Set(body).count == body.count)
         precondition(body.allSatisfy { (0..<boardSize).contains($0.x) && $0.y >= 0 && (mode == .endless || $0.y < boardSize) })
@@ -105,7 +111,7 @@ public struct SnakeEngine {
         self.rules = rules
         self.body = body
         self.direction = direction
-        self.food = food
+        self.food = mode == .speedRun ? nil : food
         self.score = score
         self.applesEaten = applesEaten
         self.phase = phase
@@ -115,6 +121,9 @@ public struct SnakeEngine {
         self.endlessFoods = endlessFoods
         self.scrollRows = scrollRows
         self.endlessSteering = min(1, max(-1, endlessSteering))
+        self.speedRunFoods = mode == .speedRun ? speedRunFoods : []
+        self.shieldSecondsRemaining = mode == .speedRun ? max(0, min(10, shieldSecondsRemaining)) : 0
+        self.shieldRecovery = mode == .speedRun && phase == .paused && shieldRecovery
     }
 
     public var level: ArcadeScore { ArcadeScore(String(applesEaten)).nextLevel }
@@ -143,6 +152,9 @@ public struct SnakeEngine {
         ratsEaten = 0
         movesPerSecond = Self.initialMovesPerSecond
         endlessFoods.removeAll()
+        speedRunFoods.removeAll()
+        shieldSecondsRemaining = 0
+        shieldRecovery = false
         scrollRows = 0
         endlessSteering = 0
         phase = .running
@@ -155,6 +167,13 @@ public struct SnakeEngine {
             endlessFoods = [Food(cell: Cell(x: mid, y: headY - 4), kind: .apple)]
             return
         }
+        if mode == .speedRun {
+            food = nil
+            let initialMix: [FoodKind] = Array(repeating: .apple, count: 6)
+                + Array(repeating: .rat, count: 5) + [.blueBird]
+            for kind in initialMix { addSpeedRunPickup(kind: kind, using: &rng) }
+            return
+        }
         // Always start with an apple, even with unusual test rules.
         food = spawnFood(using: &rng, allowRat: false)
     }
@@ -164,12 +183,12 @@ public struct SnakeEngine {
     }
 
     public mutating func resume() {
-        if phase == .paused { phase = .running }
+        if phase == .paused { phase = .running; shieldRecovery = false }
     }
 
     @discardableResult
     public mutating func turn(_ requested: Direction) -> Bool {
-        guard phase == .running else { return false }
+        guard phase == .running || (mode == .speedRun && phase == .paused && shieldRecovery) else { return false }
         if mode == .endless {
             // Latest steering wins; up/down both restore straight upward travel.
             endlessSteering = requested.dx
@@ -186,9 +205,12 @@ public struct SnakeEngine {
     public mutating func tick<R: RandomNumberGenerator>(elapsed: Double, using rng: inout R) -> GameEvent {
         guard phase == .running else { return .none }
         if mode == .endless { return tickEndless(using: &rng) }
+        let safeElapsed = elapsed.isFinite ? max(0, elapsed) : 0
+        if mode == .speedRun {
+            shieldSecondsRemaining = max(0, shieldSecondsRemaining - safeElapsed)
+        }
         // Rat time is active gameplay time; pauses/backgrounding do not consume it.
-        if let current = food, current.kind == .rat, let remaining = current.secondsRemaining {
-            let safeElapsed = elapsed.isFinite ? max(0, elapsed) : 0
+        if mode != .speedRun, let current = food, current.kind == .rat, let remaining = current.secondsRemaining {
             if remaining <= safeElapsed {
                 food = Food(cell: current.cell, kind: .apple)
             } else {
@@ -199,39 +221,60 @@ public struct SnakeEngine {
         let head = body[0]
         let next = Cell(x: (head.x + direction.dx + boardSize) % boardSize,
                         y: (head.y + direction.dy + boardSize) % boardSize)
-        let eaten = food.flatMap { $0.cell == next ? $0 : nil }
+        let eaten = mode == .speedRun ? speedRunFoods.first(where: { $0.cell == next })
+            : food.flatMap({ $0.cell == next ? $0 : nil })
+        let grows = eaten != nil && eaten?.kind != .blueBird
         // Moving into the old tail is legal only when that tail vacates this tick.
-        let occupiedCount = body.count - (eaten == nil ? 1 : 0)
+        let occupiedCount = body.count - (grows ? 0 : 1)
         if obstacles.contains(next) || body.prefix(occupiedCount).contains(next) {
+            if mode == .speedRun && shieldSecondsRemaining > 0 {
+                shieldSecondsRemaining = 0
+                shieldRecovery = true
+                collisionCause = nil
+                phase = .paused
+                queuedTurns.removeAll()
+                return .shielded
+            }
             collisionCause = obstacles.contains(next) ? .obstacle : .body
             phase = .gameOver
             queuedTurns.removeAll()
             return .collision
         }
         body.insert(next, at: 0)
+        if !grows { body.removeLast() }
         guard let eaten else {
-            body.removeLast()
             return .moved
         }
-        if eaten.kind == .rat {
+        switch eaten.kind {
+        case .rat:
             score.multiplyByFive()
             ratsEaten += 1
             movesPerSecond = min(Self.maximumMovesPerSecond, movesPerSecond * 5)
-        } else {
+        case .apple:
             score.addOne()
             applesEaten += 1
             movesPerSecond = min(Self.maximumMovesPerSecond, movesPerSecond + Self.appleSpeedIncrement)
+        case .blueBird:
+            if mode == .speedRun { shieldSecondsRemaining = 10 }
         }
+        if mode == .speedRun { speedRunFoods.removeAll { $0.cell == next } }
         if body.count == boardSize * boardSize {
             food = nil
+            speedRunFoods.removeAll()
             phase = .won
             return .won
         }
-        // Only apples advance the level. Rats preserve the current obstacle layout.
-        if eaten.kind == .apple { refreshObstacles(using: &rng) }
-        food = spawnFood(using: &rng)
-        if food == nil { phase = .won; return .won }
-        return eaten.kind == .rat ? .rat : .apple
+        if mode == .speedRun {
+            // Replace only the collected item. Every untouched item keeps its cell and kind.
+            addSpeedRunPickup(using: &rng)
+            if speedRunFoods.isEmpty { phase = .won; return .won }
+        } else {
+            // Only apples advance the level. Rats preserve the current obstacle layout.
+            if eaten.kind == .apple { refreshObstacles(using: &rng) }
+            food = spawnFood(using: &rng)
+            if food == nil { phase = .won; return .won }
+        }
+        switch eaten.kind { case .apple: return .apple; case .rat: return .rat; case .blueBird: return .blueBird }
     }
 
     /// Regenerate once per level, not per tick or per pause/resume.
@@ -308,6 +351,28 @@ public struct SnakeEngine {
             && Double.random(in: 0..<1, using: &rng) < ratChance
         return Food(cell: cell, kind: isRat ? .rat : .apple,
                     secondsRemaining: isRat ? rules.ratLifetime : nil)
+    }
+
+    /// Persistent Speed Run field: no eligibility gate, expiry, or relocation of other pickups.
+    private mutating func addSpeedRunPickup<R: RandomNumberGenerator>(kind: FoodKind? = nil, using rng: inout R) {
+        guard mode == .speedRun, speedRunFoods.count < Self.speedRunPickupTarget else { return }
+        let occupied = Set(body).union(obstacles).union(speedRunFoods.map(\.cell))
+        var free: [Cell] = []
+        for y in 0..<boardSize {
+            for x in 0..<boardSize {
+                let cell = Cell(x: x, y: y)
+                if !occupied.contains(cell) { free.append(cell) }
+            }
+        }
+        guard !free.isEmpty else { return }
+        let cell = free[Int.random(in: 0..<free.count, using: &rng)]
+        let selectedKind: FoodKind
+        if let kind { selectedKind = kind }
+        else {
+            let roll = Double.random(in: 0..<1, using: &rng)
+            selectedKind = roll < 0.45 ? .apple : (roll < 0.9 ? .rat : .blueBird)
+        }
+        speedRunFoods.append(Food(cell: cell, kind: selectedKind))
     }
 
     /// The head stays anchored while the world and trailing body move down one row.
