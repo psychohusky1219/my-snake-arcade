@@ -61,6 +61,7 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
 .footer{text-align:center;font-size:10px;color:#8ba7af;min-height:13px}
 .toast{position:absolute;top:calc(env(safe-area-inset-top) + 54px);left:50%;transform:translateX(-50%) translateY(-8px);opacity:0;pointer-events:none;z-index:8;background:#d0fa9c;color:#173425;padding:9px 15px;border-radius:20px;white-space:nowrap;font-size:13px;font-weight:900;transition:opacity .2s,transform .2s;box-shadow:0 7px 28px #0006}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast{max-width:calc(100% - 24px);white-space:normal;text-align:center}
 @media(max-height:650px){.shell{gap:5px}.pad{max-width:216px}.stat{padding:5px 6px}.footer{display:none}.top{min-height:28px}}
 @media(max-height:510px){.pad{max-width:180px}.arrow{font-size:28px}.info{display:none}}
 @media(orientation:landscape) and (max-height:600px){
@@ -98,10 +99,10 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
  #control-note{font-size:10px;min-height:26px;margin-top:5px}.mode-option{min-height:44px;padding:7px 4px}
 }
 
-/* Modes: Speed Run is a deliberately disabled placeholder. */
+/* Four game modes share the selected controller and keep separate records. */
 .game-choice{border:0;padding:0;margin:0 auto 16px;max-width:350px;min-width:0}
 .game-choice legend{width:100%;margin-bottom:8px;color:var(--muted);font-size:9px;font-weight:850;letter-spacing:1.8px}
-.game-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.game-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
 .game-option{display:flex;flex-direction:column;justify-content:center;gap:5px;min-height:63px;border-radius:12px;border:1px solid #46646b;background:#223b45;font-size:13px;font-weight:850;padding:8px 4px}
 .game-option small{font-size:9px;font-weight:600;opacity:.8}
 .game-option[aria-pressed="true"]{background:var(--mint);color:#10271d;border-color:var(--mint)}
@@ -127,13 +128,14 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
    <div class="logo" aria-hidden="true">🐍</div>
    <div class="kicker">MY SNAKE ARCADE</div>
    <h1>SNAKE<span>.</span></h1>
-   <p class="sub">Pick your game. Pick your controls.<br>Apples level you up. Rats multiply your score by <strong style="color:#baf57b">5×</strong>.</p>
+   <p class="sub">Pick your game. Pick your controls.<br>Four ways to keep the snake moving.</p>
    <fieldset class="game-choice">
     <legend>CHOOSE YOUR GAME</legend>
     <div class="game-options">
      <button type="button" class="game-option" id="mode-classic" aria-pressed="true"><span>Classic</span><small>Original</small></button>
      <button type="button" class="game-option" id="mode-survivor" aria-pressed="false"><span>Survivor</span><small>Obstacles 10+</small></button>
-     <button type="button" class="game-option" id="mode-speed" disabled aria-label="Speed Run, coming soon"><span>Speed Run</span><small>Coming soon</small></button>
+     <button type="button" class="game-option" id="mode-speed" aria-pressed="false"><span>Speed Run</span><small>More rats · 42×42</small></button>
+     <button type="button" class="game-option" id="mode-endless" aria-pressed="false"><span>Endless</span><small>Scroll · Eat · Survive</small></button>
     </div>
     <p id="game-note">The original game. No obstacles, wall wrap and 5× rats.</p>
    </fieldset>
@@ -146,7 +148,7 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
     <p id="control-note">Steer with the large directional buttons.</p>
    </fieldset>
    <button class="play" id="play">TAP TO PLAY ⛶</button>
-   <div class="legend"><span>🍎 +1 point</span><span>🐀 Score ×5</span><span>↔ Through walls</span></div>
+   <div class="legend" id="mode-legend"><span>🍎 +1 point</span><span>🐀 Score & speed ×5</span><span>↔ Through walls</span></div>
    <div class="private">Free to play · No ads · Scores stay on your device</div>
    <div class="install-note">On iPhone: open in Safari, then Share → Add to Home Screen.<br><span id="offline-status">Preparing offline play…</span></div>
   </div>
@@ -156,7 +158,7 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
    <div class="top"><div class="brand">🐍 SNAKE<span>.</span><small id="run-mode">CLASSIC</small></div><button id="close" class="close" aria-label="Exit game">×</button></div>
    <div class="stats">
     <div class="stat"><div class="stat-label">SCORE</div><div class="stat-val score-val" id="score">0</div></div>
-    <div class="stat"><div class="stat-label">LEVEL</div><div class="stat-val level-val" id="level">1</div></div>
+    <div class="stat"><div class="stat-label" id="level-label">LEVEL</div><div class="stat-val level-val" id="level">1</div></div>
     <div class="stat"><div class="stat-label" id="best-label">CLASSIC BEST</div><div class="stat-val" id="best">0</div></div>
    </div>
    <div class="stage" id="stage"><div class="field" id="field">
@@ -182,7 +184,7 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
     </div>
     <button class="action" id="restart">Restart ↻</button>
    </div>
-   <div class="footer">🐀 Rare rat bonus lasts 8 seconds · Tap × to exit</div>
+   <div class="footer" id="game-footer">🐀 Rat bonus lasts 8 seconds · Speed capped at 30 moves/sec</div>
   </div>
   <div class="toast" id="toast">🐀 RAT! Score ×5</div>
  </section>
@@ -192,28 +194,46 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
 'use strict';
 const get=id=>document.getElementById(id);
 const menu=get('menu'),game=get('game'),field=get('field'),stage=get('stage'),canvas=get('canvas'),ctx=canvas.getContext('2d');
-const COUNT=24,CELL=20; // canvas 480 × 480
+const MODE_SIZES={classic:24,survivor:34,speedRun:42,endless:24};
+const MODE_TITLES={classic:'Classic',survivor:'Survivor',speedRun:'Speed Run',endless:'Endless'};
+let COUNT=24,CELL=20; // The fixed 480 × 480 canvas fits every grid.
+const INITIAL_SPEED=1000/210,APPLE_SPEED_GAIN=INITIAL_SPEED*.055,MAX_SPEED=30;
+let speed=INITIAL_SPEED;
 const direction={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
 let snake=[],food=null,heading=direction.right,turns=[],score=0n,level=1n,best=0n,apples=0,sinceRat=0,mode='menu',timeout=null,lastTime=0,ratRemaining=0,fullscreenRequested=false,toastTimer=null;
 try{const saved=localStorage.getItem('my-private-snake-best-v1')||'0';if(/^\d+$/.test(saved))best=BigInt(saved)}catch(_){}
 get('best').textContent=best;
 let gameMode='classic',obstacles=[],obstacleSet=new Set(),collisionCause=null;
-try{if(localStorage.getItem('my-snake-game-mode-v1')==='survivor')gameMode='survivor'}catch(_){}
-function bestKey(){return gameMode==='classic'?'my-private-snake-best-v1':'my-snake-survivor-best-v1'}
+let endlessFoods=[],scrollRows=0,endlessSteer=0;
+try{const saved=localStorage.getItem('my-snake-game-mode-v1');if(Object.hasOwn(MODE_SIZES,saved))gameMode=saved}catch(_){}
+function bestKey(){return gameMode==='classic'?'my-private-snake-best-v1':'my-snake-'+gameMode+'-best-v1'}
 function selectGameMode(value){
- if(mode!=='menu'||!['classic','survivor'].includes(value))return;
+ if(mode!=='menu'||!Object.hasOwn(MODE_SIZES,value))return;
  gameMode=value;
  try{localStorage.setItem('my-snake-game-mode-v1',value);const saved=localStorage.getItem(bestKey())||'0';best=/^\d+$/.test(saved)?BigInt(saved):0n}catch(_){best=0n}
  get('mode-classic').setAttribute('aria-pressed',String(value==='classic'));
  get('mode-survivor').setAttribute('aria-pressed',String(value==='survivor'));
- get('game-note').textContent=value==='survivor'?'Levels 1–9 are clear. From level 10: random obstacle levels. Hit a block and the run ends.':'The original game. No obstacles, wall wrap and 5× rats.';
- get('play').textContent='PLAY '+value.toUpperCase()+' ⛶';
- get('run-mode').textContent=value.toUpperCase();
- get('best-label').textContent=value.toUpperCase()+' BEST';
+ get('mode-speed').setAttribute('aria-pressed',String(value==='speedRun'));
+ get('mode-endless').setAttribute('aria-pressed',String(value==='endless'));
+ const notes={classic:'24×24 · Apples advance level. Rats multiply score and speed, not level.',survivor:'34×34 · Levels 1–9 clear. Obstacles: 5% at level 10, +5 percentage points per level, 100% at 29+. Hit a block and the run ends.',speedRun:'42×42 · More rats: 45% after three apples. Score & speed ×5, level unchanged. No timer.',endless:'Scroll upward. Left/right steer; up/down go straight. Food adds one segment, a block removes one. Survive until no segments remain.'};
+ get('game-note').textContent=notes[value];
+ for(const button of document.querySelectorAll('[data-dir]')){
+  const d=button.dataset.dir;
+  button.setAttribute('aria-label',value==='endless'?(d==='left'?'Steer diagonally up-left':d==='right'?'Steer diagonally up-right':'Go straight ahead'):d[0].toUpperCase()+d.slice(1));
+ }
+ get('mode-legend').innerHTML=value==='endless'?'<span>🍎🐀 +1 segment</span><span>■ −1 segment</span><span>↑ Keep moving</span>':'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span>↔ Through walls</span>';
+ get('level-label').textContent=value==='endless'?'LENGTH':'LEVEL';
+ get('game-footer').textContent=value==='endless'?'Food +1 · Block −1 · Rats accelerate faster · × to exit':'🐀 Rat lasts 8 seconds · Speed capped at 30 moves/sec · × to exit';
+ const title=MODE_TITLES[value].toUpperCase();
+ get('play').textContent='PLAY '+title+' ⛶';
+ get('run-mode').textContent=title;
+ get('best-label').textContent=title+' BEST';
  get('best').textContent=best;game.dataset.mode=value;
 }
 get('mode-classic').addEventListener('click',()=>selectGameMode('classic'));
 get('mode-survivor').addEventListener('click',()=>selectGameMode('survivor'));
+get('mode-speed').addEventListener('click',()=>selectGameMode('speedRun'));
+get('mode-endless').addEventListener('click',()=>selectGameMode('endless'));
 selectGameMode(gameMode);
 const touchPad=get('touch-pad');
 let controlMode='arrows';
@@ -233,8 +253,8 @@ get('choose-touch').addEventListener('click',()=>selectControlMode('touch'));
 selectControlMode(controlMode);
 function rand(max){return Math.floor(Math.random()*max)}
 function place(type='apple'){
- const free=[];
- for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++)if(!snake.some(p=>p.x===x&&p.y===y)&&!obstacleSet.has(y*COUNT+x))free.push({x,y});
+ const free=[],occupied=new Set([...snake.map(p=>p.y*COUNT+p.x),...obstacleSet]);
+ for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++)if(!occupied.has(y*COUNT+x))free.push({x,y});
  if(!free.length)return null;
  return {...free[rand(free.length)],type};
 }
@@ -248,9 +268,10 @@ function openCellsConnected(blocked,start){
  }
  return seen.size===COUNT*COUNT-blocked.size;
 }
+function obstacleChance(atLevel=level){return atLevel<10n?0:atLevel>=29n?1:Number(atLevel-9n)*.05}
 function refreshObstacles(random=Math.random){
  obstacles=[];obstacleSet.clear();
- if(gameMode!=='survivor'||level<10n||random()>=.5)return;
+ if(gameMode!=='survivor'||random()>=obstacleChance())return;
  const key=p=>p.y*COUNT+p.x,head=snake[0],protectedCells=new Set(snake.map(key));
  if(food)protectedCells.add(key(food));
  for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++){
@@ -269,12 +290,12 @@ function refreshObstacles(random=Math.random){
   obstacles.push(...cells);obstacleSet=proposed;groups++;
  }
 }
-function millis(){return Math.max(53,Math.round(210/(1+Number(score>1000n?1000n:score)*.055)))}
+function millis(){return 1000/speed}
 function update(){
- get('score').textContent=score;get('level').textContent=level;get('best').textContent=best;
- get('wrap-status').textContent=gameMode==='survivor'?(obstacles.length?'⚠ Obstacle level':'✓ Clear level'):'↔ Wall wrap ON';
+ get('score').textContent=score;get('level').textContent=gameMode==='endless'?snake.length:level;get('best').textContent=best;
+ get('wrap-status').textContent=gameMode==='endless'?'↑ Endless ascent':gameMode==='survivor'?(obstacles.length?'⚠ Obstacle level':'✓ Clear level'):'↔ Wall wrap ON';
  get('wrap-status').classList.toggle('hazard',obstacles.length>0);
- if(food&&food.type==='rat')get('hint').textContent='🐀 Rat bonus! '+Math.ceil(ratRemaining/1000)+'s left · Score ×5';
+ if(food&&food.type==='rat')get('hint').textContent='🐀 '+Math.ceil(ratRemaining/1000)+'s left · Score & speed ×5';
  else get('hint').textContent='⚡ '+(1000/millis()).toFixed(1)+' moves/sec · '+(controlMode==='touch'?'Swipe on touch pad':'Use arrow pad');
 }
 function rectangle(x,y,w,h,r,color){
@@ -286,33 +307,42 @@ function rectangle(x,y,w,h,r,color){
 }
 function render(){
  ctx.fillStyle='#0d1c25';ctx.fillRect(0,0,480,480);
+ // Draw each cell in the original 20-unit coordinate system, scaling every
+ // feature together so denser boards actually show a smaller-looking snake.
+ ctx.save();ctx.scale(CELL/20,CELL/20);
+ const span=COUNT*20;
  ctx.strokeStyle='#1c323b';ctx.lineWidth=.6;ctx.beginPath();
- for(let i=1;i<COUNT;i++){const p=i*CELL+.5;ctx.moveTo(p,0);ctx.lineTo(p,480);ctx.moveTo(0,p);ctx.lineTo(480,p)}ctx.stroke();
+ for(let i=1;i<COUNT;i++){const p=i*20+.5;ctx.moveTo(p,0);ctx.lineTo(p,span);ctx.moveTo(0,p);ctx.lineTo(span,p)}ctx.stroke();
+ if(gameMode==='endless'){
+  ctx.strokeStyle='#304b53';ctx.lineWidth=1;ctx.beginPath();
+  for(let i=0;i<=COUNT;i++)if((i-scrollRows)%5===0){ctx.moveTo(0,i*20+.5);ctx.lineTo(span,i*20+.5)}ctx.stroke();
+ }
  for(const p of obstacles){
-  const x=p.x*CELL,y=p.y*CELL;
+  const x=p.x*20,y=p.y*20;
   rectangle(x+1.5,y+1.5,17,17,3,'#df642f');
   ctx.strokeStyle='#ffcf82';ctx.lineWidth=1.1;ctx.strokeRect(x+3,y+3,14,14);
   ctx.strokeStyle='#683b2d';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+6,y+6);ctx.lineTo(x+14,y+14);ctx.moveTo(x+14,y+6);ctx.lineTo(x+6,y+14);ctx.stroke();
  }
- if(food){
-  const x=food.x*CELL+10,y=food.y*CELL+10;
+ for(const item of gameMode==='endless'?endlessFoods:(food?[food]:[])){
+  const x=item.x*20+10,y=item.y*20+10;
   ctx.shadowBlur=13;
-  if(food.type==='rat'){
+  if(item.type==='rat'){
     ctx.shadowColor='#ffd58a';
     ctx.font='19px "Apple Color Emoji","Segoe UI Emoji",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('🐀',x,y+1);ctx.shadowBlur=0;
-    ctx.strokeStyle='#ffd98b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,9,-Math.PI/2,-Math.PI/2+Math.PI*2*(ratRemaining/8000));ctx.stroke();
+    if(gameMode!=='endless'){ctx.strokeStyle='#ffd98b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,9,-Math.PI/2,-Math.PI/2+Math.PI*2*(ratRemaining/8000));ctx.stroke();}
   }else{
     ctx.shadowColor='#ff6372';ctx.fillStyle='#ff5d70';ctx.beginPath();ctx.arc(x,y+1,7,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
     ctx.fillStyle='#baf28e';ctx.beginPath();ctx.ellipse(x+3,y-7,3,1.8,-.65,0,Math.PI*2);ctx.fill();
   }
  }
- snake.forEach((p,i)=>rectangle(p.x*CELL+1,p.y*CELL+1,18,18,i===0?6:5,i===0?'#e0ffac':i%2?'#86d16e':'#a2e879'));
+ snake.forEach((p,i)=>{if(p.y>=0&&p.y<COUNT)rectangle(p.x*20+1,p.y*20+1,18,18,i===0?6:5,i===0?'#e0ffac':i%2?'#86d16e':'#a2e879')});
  if(snake.length){
-  const h=snake[0],x=h.x*CELL,y=h.y*CELL;
+  const h=snake[0],x=h.x*20,y=h.y*20;
   const eyes=heading.x!==0?[[heading.x>0?14:6,5],[heading.x>0?14:6,14]]:[[5,heading.y>0?14:6],[14,heading.y>0?14:6]];
   ctx.fillStyle='#23462e';eyes.forEach(p=>{ctx.beginPath();ctx.arc(x+p[0],y+p[1],1.9,0,Math.PI*2);ctx.fill()});
  }
+ ctx.restore();
 }
 function resize(){
  const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;
@@ -322,9 +352,15 @@ function resize(){
 if('ResizeObserver' in window)new ResizeObserver(resize).observe(stage);
 window.addEventListener('resize',resize);
 function reset(){
- snake=[{x:12,y:12},{x:11,y:12},{x:10,y:12}];heading=direction.right;turns=[];
+ COUNT=MODE_SIZES[gameMode];CELL=480/COUNT;
+ const mid=Math.floor(COUNT/2),headY=Math.floor(COUNT*.65);
+ snake=gameMode==='endless'?Array.from({length:5},(_,i)=>({x:mid,y:headY+i})):[{x:mid,y:mid},{x:mid-1,y:mid},{x:mid-2,y:mid}];
+ heading=gameMode==='endless'?direction.up:direction.right;turns=[];
  obstacles=[];obstacleSet.clear();collisionCause=null;
- score=0n;level=1n;apples=0;sinceRat=0;ratRemaining=0;food=place('apple');lastTime=performance.now();update();render();
+ scrollRows=0;endlessSteer=0;endlessFoods=[];
+ score=0n;level=1n;speed=gameMode==='endless'?5:INITIAL_SPEED;apples=0;sinceRat=0;ratRemaining=0;
+ if(gameMode==='endless'){food=null;endlessFoods=[{x:mid,y:headY-4,type:'apple'}]}else food=place('apple');
+ lastTime=performance.now();update();render();
 }
 function cancelTick(){if(timeout!==null){clearTimeout(timeout);timeout=null}}
 function schedule(){cancelTick();if(mode==='running')timeout=setTimeout(tick,millis())}
@@ -335,24 +371,67 @@ function announce(message){const el=get('toast');el.textContent=message;el.class
 function over(win){
  finishTouch();update();cancelTick();mode=win?'won':'over';
  get('overlay-emoji').textContent=win?'🏆':'💥';get('overlay-title').textContent=win?'You win!':collisionCause==='obstacle'?'Obstacle hit!':'Game over';
- get('overlay-sub').textContent='Score: '+score+' · Level: '+level;
+ get('overlay-sub').textContent='Score: '+score+(gameMode==='endless'?' · Length: '+snake.length:' · Level: '+level);
  get('overlay-button').textContent='Play again ↻';get('overlay').classList.remove('hidden');
 }
 function nextFood(){
- // Rare, spaced-out rats temporarily replace ordinary apples.
- const ratAllowed=apples>=3&&sinceRat>=3;
- const isRat=ratAllowed&&Math.random()<.22;
- if(isRat){sinceRat=0;ratRemaining=8000;food=place('rat');announce('🐀 RARE RAT! Score ×5');}
+ const isRat=apples>=3&&Math.random()<(gameMode==='speedRun'?.45:.18);
+ if(isRat){sinceRat=0;ratRemaining=8000;food=place('rat');announce('🐀 RAT! SCORE & SPEED ×5');}
  else{food=place('apple');ratRemaining=0;}
  if(!food){over(true);return false}
  return true;
 }
+function saveBest(){
+ if(score>best){best=score;try{localStorage.setItem(bestKey(),String(best))}catch(_){}}
+}
+function spawnEndless(random=Math.random){
+ // New scenery appears at the top, with many rows of warning before contact.
+ if(scrollRows%4===0){
+  const free=[];
+  for(let x=0;x<COUNT;x++)if(!obstacles.some(p=>p.y===0&&p.x===x)&&!endlessFoods.some(p=>p.y===0&&p.x===x))free.push(x);
+  if(free.length)endlessFoods.push({x:free[Math.floor(random()*free.length)],y:0,type:random()<.18?'rat':'apple'});
+ }
+ if(scrollRows>=10&&scrollRows%5===0){
+  const width=1+Math.floor(random()*3),starts=[];
+  for(let x=0;x<=COUNT-width;x++)if(!endlessFoods.some(p=>p.y===0&&p.x>=x&&p.x<x+width)&&!obstacles.some(p=>p.y===0&&p.x>=x&&p.x<x+width))starts.push(x);
+  if(starts.length){const x=starts[Math.floor(random()*starts.length)];for(let i=0;i<width;i++)obstacles.push({x:x+i,y:0})}
+ }
+ obstacleSet=new Set(obstacles.map(p=>p.y*COUNT+p.x));
+}
+function tickEndless(){
+ // The camera holds the head in place while world rows and body trail move
+ // down. Only the resulting head cell contacts scenery; body overlap is safe.
+ scrollRows++;
+ obstacles=obstacles.map(p=>({x:p.x,y:p.y+1})).filter(p=>p.y<COUNT);
+ endlessFoods=endlessFoods.map(p=>({...p,y:p.y+1})).filter(p=>p.y<COUNT);
+ const head={x:Math.max(0,Math.min(COUNT-1,snake[0].x+endlessSteer)),y:Math.floor(COUNT*.65)};
+ const eaten=endlessFoods.find(p=>p.x===head.x&&p.y===head.y);
+ snake=snake.map(p=>({x:p.x,y:p.y+1}));snake.unshift(head);
+ if(eaten){
+  endlessFoods=endlessFoods.filter(p=>p!==eaten);score+=1n;level=score+1n;
+  speed=Math.min(MAX_SPEED,speed+(eaten.type==='rat'?.36:.12));
+  announce(eaten.type==='rat'?'🐀 +1 SEGMENT · EXTRA SPEED':'🍎 +1 SEGMENT');saveBest();
+ }else snake.pop();
+ if(obstacles.some(p=>p.x===head.x&&p.y===head.y)){
+  let left=head.x,right=head.x;
+  while(obstacles.some(p=>p.y===head.y&&p.x===left-1))left--;
+  while(obstacles.some(p=>p.y===head.y&&p.x===right+1))right++;
+  // Consume the whole contacted group. It can never hit the head or trail
+  // again on later ticks, even if several of its cells overlap the snake.
+  obstacles=obstacles.filter(p=>p.y!==head.y||p.x<left||p.x>right);
+  obstacleSet=new Set(obstacles.map(p=>p.y*COUNT+p.x));
+  snake.pop();announce('BLOCK HIT · −1 SEGMENT');
+  if(!snake.length){collisionCause='obstacle';over(false);render();return}
+ }
+ spawnEndless();update();render();schedule();
+}
 function tick(){
  if(mode!=='running')return;
+ if(gameMode==='endless'){tickEndless();return}
  const now=performance.now(),dt=Math.max(0,Math.min(now-lastTime,1200));lastTime=now;
  if(food&&food.type==='rat'){
   ratRemaining-=dt;
-  if(ratRemaining<=0){ratRemaining=0;food=place('apple');}
+  if(ratRemaining<=0){ratRemaining=0;food={...food,type:'apple'};}
  }
  if(turns.length)heading=turns.shift();
  const head={x:(snake[0].x+heading.x+COUNT)%COUNT,y:(snake[0].y+heading.y+COUNT)%COUNT};
@@ -361,15 +440,15 @@ function tick(){
  if((eating?snake:snake.slice(0,-1)).some(p=>p.x===head.x&&p.y===head.y)){collisionCause='body';over(false);return}
  snake.unshift(head);
  if(eating){
+  const ateApple=food.type==='apple';
   if(food.type==='rat'){
-   score*=5n;announce('🐀 RAT EATEN! ×5 SCORE!');ratRemaining=0;
-  }else{score+=1n;apples+=1;sinceRat+=1;}
-  level=score+1n;
-  if(score>best){best=score;try{localStorage.setItem(bestKey(),String(best))}catch(_){}}
+   score*=5n;speed=Math.min(MAX_SPEED,speed*5);announce('🐀 RAT! SCORE & SPEED ×5 · LEVEL UNCHANGED');ratRemaining=0;
+  }else{score+=1n;apples+=1;sinceRat+=1;level=BigInt(apples)+1n;speed=Math.min(MAX_SPEED,speed+APPLE_SPEED_GAIN);}
+  saveBest();
   const hadObstacles=obstacles.length>0;
-  refreshObstacles();
+  if(ateApple)refreshObstacles();
   if(!nextFood()){render();return}
-  if(gameMode==='survivor'&&level>=10n){
+  if(ateApple&&gameMode==='survivor'&&level>=10n){
    if(obstacles.length)announce('⚠ LEVEL '+level+' · AVOID THE BLOCKS');
    else if(hadObstacles)announce('✓ LEVEL '+level+' · CLEAR BOARD');
   }
@@ -378,6 +457,7 @@ function tick(){
 }
 function turn(name){
  if(mode!=='running'||!direction[name])return;
+ if(gameMode==='endless'){endlessSteer=name==='left'?-1:name==='right'?1:0;return}
  const d=direction[name],last=turns.length?turns[turns.length-1]:heading;
  if(turns.length<2&&(d.x!==last.x||d.y!==last.y)&&(d.x!==-last.x||d.y!==-last.y))turns.push(d);
 }

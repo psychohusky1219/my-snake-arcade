@@ -8,6 +8,7 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 1
 fi
 xcrun --find xcodebuild >/dev/null
+node scripts/test-web.mjs
 swift test --package-path iOS
 DERIVED="$ROOT/build/iphoneos"
 xcodebuild \

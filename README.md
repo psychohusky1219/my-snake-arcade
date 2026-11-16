@@ -1,95 +1,78 @@
 # My Snake Arcade
 
-**Play now:** https://my-snake-arcade.vercel.app/
+[Play the browser game](https://my-snake-arcade.vercel.app/) · [Download native releases](https://github.com/psychohusky1219/my-snake-arcade/releases)
 
-A small Snake game in two implementations: dependency-free browser/PWA and
-native Swift/SwiftUI for iPhone. Swipe or use the arrow pad; walls wrap; apples
-add one point; rats multiply the current score by five. Levels follow score;
-speed increases to a practical cap. Scores remain on the device.
+The existing dependency-free browser/PWA and native Swift/SwiftUI iPhone game.
+Choose Arrow Pad or the separate Touch Pad before playing. Scores and control
+choices stay on the device; browser and native records remain separate.
 
-## Status of this delivery
+## Gameplay
 
-- Public Vercel production game: deployed and responding successfully.
-- Native source, core tests, and a GitHub macOS build workflow: included.
-- GitHub repository creation, first Xcode build, physical-device installation:
-  **not completed in this environment**. Run the Windows publisher to begin.
-- App Store/TestFlight: not submitted. No Apple paid program was purchased.
+| Mode | Native grid | Browser grid | Rules |
+| --- | --- | --- | --- |
+| Classic | 20×20 | 24×24 | Original grid, wall wrapping, body collision ends the run. |
+| Survivor | 28×28 | 34×34 | Approximately twice the original cell count; obstacle chance 5% at level 10, +5 percentage points each level, 100% at level 29 onward. |
+| Speed Run | 35×35 | 42×42 | Approximately three times the original cell count; more rats, no timer or obstacles. |
+| Endless | 20×20 view | 24×24 view | Scrolling upward survival; food adds length, obstacle contacts remove length. |
 
-## Publish the GitHub build from Windows
+Classic, Survivor and Speed Run start with three segments. Apples add one point,
+one segment, one level and a small speed increment. Rats multiply current score
+and current speed by five and add one segment, but do not change level. Speed
+caps at 30 moves/sec. Each edition retains its original opening and apple pace.
+Rats become eligible after three apples: 18% chance in Classic/Survivor and 45%
+in Speed Run, with an eight-second active-play lifetime.
 
-Extract this entire ZIP, review the scripts, then open `Publish-GitHub.cmd`.
-It asks before installing missing free prerequisites through Windows Package
-Manager, uses GitHub's browser login, verifies the destination account, and
-creates a **new public** `my-snake-arcade` repository. It refuses to overwrite
-an existing repository or to use a directory already inside a Git repository.
-Only files listed and SHA-256-verified in `PUBLISH-MANIFEST.json` are committed.
-You can cancel at any prompt. No token or password belongs in this source.
+Survivor replaces its obstacle layout on each apple level. Clear rolls remove
+old obstacles; rats do not reroll. Placement avoids the snake, food, the area
+around the head and its immediate forward course, and preserves connected open
+paths. A crowded board may have fewer blocks when safe placement is impossible.
 
-On a successful initial push, `Build native iPhone app` starts under **Actions**.
-After it succeeds, **Releases** contains a prerelease with `MySnake-unsigned.ipa`,
-checksums, build information, and installation instructions. The workflow uses
-no Apple credentials, GitHub Actions cache, or Actions artifact storage. It is
-restricted to public repositories and main-branch code on a standard macOS runner.
+Endless starts with five segments at 5 moves/sec. The head stays near the lower
+middle while the world moves down. Left/right maintain diagonal steering;
+up/down straighten. Side edges clamp; body crossings are allowed. Every food
+adds one point and exactly one segment. Apple speed gain is 0.12 moves/sec;
+rat gain is 0.36, up to 30. One food spawns every four rows, with an 18% rat
+chance. Short obstacle groups spawn every five rows starting at row ten.
+Head contact consumes the whole horizontal obstacle group and removes exactly
+one segment, so the same obstacle cannot repeatedly drain the snake. Tail
+contact is harmless. Zero segments ends the run; offscreen tail still counts.
 
-Git and GitHub CLI official downloads: https://git-scm.com/downloads/win and
-https://cli.github.com/. The script requires Windows PowerShell 5.1 or newer.
-The publisher has been inspected, but not executed on a Windows machine here.
-A failed initial upload may leave a local `.git` folder or an empty newly created
-remote; review that state rather than deleting or overwriting existing content.
+## Develop and verify
 
-## Install on iPhone
+- `Web/`: static HTML, PWA manifest, service worker, icons and Vercel settings.
+- `iOS/`: native Xcode project and portable engine tests; minimum iOS 16.
+- `scripts/test-web.mjs`: Node tests exercising the real browser game script.
+- `scripts/build-ios.sh`: engine tests and unsigned device build on macOS/Xcode.
+- `.github/workflows/build-ios.yml`: existing public-repository macOS build/release.
 
-Browser option: open the live game in Safari, tap Share, Add to Home Screen,
-keep Open as Web App enabled when offered, and Add. Launch from the icon.
-Wait for the menu's offline-ready message before relying on cached play.
-Offline storage can be cleared or evicted by the browser/OS. Browser/system
-controls and iOS Home gestures cannot be forcibly disabled by this game.
+Run `node scripts/test-web.mjs` and `swift test --package-path iOS`.
+Run the device build on macOS with `bash scripts/build-ios.sh`.
+The workflow publishes the actual `MySnake-unsigned.ipa`, SHA-256 checksum,
+commit/build information and installation instructions to a versioned GitHub
+Release after checks and compilation succeed. A successful build does not
+substitute for gameplay testing on a physical iPhone.
 
-Native option: follow [Windows installation](docs/INSTALL-WINDOWS.md).
-The unsigned IPA is a real native device binary, but it is not directly installable
-by tapping it in Safari. Personal free-account signing normally needs renewal
-every seven days. Neither that route nor GitHub Releases is App Store publication.
+## Install and update
 
-## Project layout
+Use the exact successful release's IPA with Sideloadly on Windows. Keep the
+existing app installed and use the same Apple account and bundle-ID settings.
+The app bundle ID remains `com.rotemmadar.mysnake`. Existing score/control keys
+are retained; new modes get separate best-score keys. See
+[Windows installation](docs/INSTALL-WINDOWS.md).
 
-- `Web/`: static browser game, manifest, service worker, icon, Vercel configuration.
-- `iOS/`: native Xcode project, exact engine sources and 18 unit tests.
-- `.github/workflows/build-ios.yml`: tests, device build, and unsigned prerelease.
-- `scripts/build-ios.sh`: reproducible build commands, no signing.
-- `docs/`: native installation and release explanations.
+For the web app, open the live URL in Safari and use Add to Home Screen. Wait
+for the menu's offline-ready message before relying on offline play. Browser
+storage can be cleared or evicted by the browser/OS.
 
-Run engine tests with `swift test --package-path iOS`.
-Run the full build on macOS with Xcode using `bash scripts/build-ios.sh`.
-The native target supports iPhone with iOS 16 or later. Its Xcode build still
-needs to succeed in the cloud before an installable, signed app can be produced.
+## Publishing and privacy
 
-## Vercel and source updates
+Continue using the existing GitHub repository and Vercel project. The native
+workflow uses the standard public macOS runner, no signing secrets, no Actions
+artifact/cache storage and no paid add-ons. Browser source is published through
+the existing Vercel connection; a Git push alone is not assumed to deploy it.
+No additional project, domain, membership or paid plan is needed by this update.
 
-The published Vercel project is `my-snake-arcade`. It was deployed directly, not
-from GitHub, and it is **not automatically connected to the new repository**.
-After creating the repository, connect it to this existing project through
-Vercel Project Settings > Git, set Root Directory to `Web`, and keep the
-framework preset Other, with no install/build command and no output override.
-Do not import a second project unnecessarily. Future approved main-branch
-changes can then deploy through that connection. The native workflow itself
-does not alter Vercel or require a Vercel token.
-
-## Costs, privacy, and rights
-
-Vercel Hobby is free within its personal/noncommercial rules and quotas; this
-package enables no paid plans, purchases, domains, or add-ons. GitHub standard
-public runners have no compute-minute charges; this workflow uses GitHub Release
-assets rather than Actions artifact/cache storage. Provider rules can change.
-Apple's public App Store route normally requires US$99/year membership unless
-eligible for a fee waiver. Free web publishing does not make App Store publishing
-free.
-
-The public game can be accessed by anyone with the link. The proposed public
-repository exposes its source. No analytics, ads, game accounts, or remote
-score service are included; hosting providers may retain ordinary request logs.
-Native and web scores are stored separately. No broad license has been added.
-
-References: [Vercel Hobby](https://vercel.com/docs/plans/hobby),
-[GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions),
-[GitHub Releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases),
-[Apple membership](https://developer.apple.com/programs/whats-included/).
+No ads, game telemetry, account system or remote score service is included.
+The repository and browser game are public. Hosting providers may retain normal
+request logs. Apple credentials belong only in the user's installation tool,
+never in the repository or chat. This is not an App Store/TestFlight release.

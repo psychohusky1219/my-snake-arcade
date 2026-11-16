@@ -26,33 +26,44 @@ public struct Food: Equatable, Sendable {
 }
 
 public enum GameMode: String, CaseIterable, Sendable {
-    case classic, survivor, speedRun
+    case classic, survivor, speedRun, endless
     public var title: String {
-        switch self { case .classic: return "Classic"; case .survivor: return "Survivor"; case .speedRun: return "Speed Run" }
+        switch self {
+        case .classic: return "Classic"
+        case .survivor: return "Survivor"
+        case .speedRun: return "Speed Run"
+        case .endless: return "Endless"
+        }
     }
-    public var isPlayable: Bool { self != .speedRun }
+    public var isPlayable: Bool { true }
+    public var boardSize: Int {
+        switch self { case .classic, .endless: return 20; case .survivor: return 28; case .speedRun: return 35 }
+    }
 }
 public enum CollisionCause: Sendable { case body, obstacle }
 
 public enum GamePhase: Sendable { case ready, running, paused, gameOver, won }
-public enum GameEvent: Sendable { case none, moved, apple, rat, collision, won }
+public enum GameEvent: Sendable { case none, moved, apple, rat, damaged, collision, won }
 
 public struct GameRules: Sendable {
     public var ratChance: Double
     public var applesBeforeRats: Int
     public var ratLifetime: Double
-    public var obstacleChance: Double
-    public init(ratChance: Double = 0.18, applesBeforeRats: Int = 3, ratLifetime: Double = 8, obstacleChance: Double = 0.5) {
+    public var speedRunRatChance: Double
+    public init(ratChance: Double = 0.18, applesBeforeRats: Int = 3, ratLifetime: Double = 8, speedRunRatChance: Double = 0.45) {
         self.ratChance = min(1, max(0, ratChance))
         self.applesBeforeRats = max(0, applesBeforeRats)
         self.ratLifetime = max(0.1, ratLifetime)
-        self.obstacleChance = min(1, max(0, obstacleChance))
+        self.speedRunRatChance = min(1, max(0, speedRunRatChance))
     }
 }
 
 /// Pure Swift, deterministic with an injected RNG, and independently testable.
 public struct SnakeEngine {
-    public let boardSize: Int
+    public static let initialMovesPerSecond = 1 / 0.195
+    public static let maximumMovesPerSecond = 30.0
+    public static let appleSpeedIncrement = 0.048 / 0.195
+    public private(set) var boardSize: Int
     public let rules: GameRules
     public private(set) var body: [Cell]
     public private(set) var direction: Direction = .right
@@ -60,11 +71,15 @@ public struct SnakeEngine {
     public private(set) var score = ArcadeScore()
     public private(set) var applesEaten = 0
     public private(set) var ratsEaten = 0
+    public private(set) var movesPerSecond = SnakeEngine.initialMovesPerSecond
+    public private(set) var endlessFoods: [Food] = []
+    public private(set) var scrollRows = 0
     public private(set) var phase: GamePhase = .ready
     public private(set) var mode: GameMode = .classic
     public private(set) var obstacles: Set<Cell> = []
     public private(set) var collisionCause: CollisionCause?
     private var queuedTurns: [Direction] = []
+    private var endlessSteering = 0
 
     public init(boardSize: Int = 20, rules: GameRules = GameRules()) {
         precondition(boardSize >= 4 && boardSize <= 100)
@@ -79,10 +94,12 @@ public struct SnakeEngine {
     init(boardSize: Int = 20, body: [Cell], direction: Direction = .right,
          food: Food?, score: ArcadeScore = ArcadeScore(), applesEaten: Int = 0,
          phase: GamePhase = .running, rules: GameRules = GameRules(),
-         mode: GameMode = .classic, obstacles: Set<Cell> = []) {
+         mode: GameMode = .classic, obstacles: Set<Cell> = [],
+         movesPerSecond: Double = SnakeEngine.initialMovesPerSecond,
+         endlessFoods: [Food] = [], scrollRows: Int = 0, endlessSteering: Int = 0) {
         precondition(boardSize >= 4 && boardSize <= 100)
         precondition(!body.isEmpty && Set(body).count == body.count)
-        precondition(body.allSatisfy { (0..<boardSize).contains($0.x) && (0..<boardSize).contains($0.y) })
+        precondition(body.allSatisfy { (0..<boardSize).contains($0.x) && $0.y >= 0 && (mode == .endless || $0.y < boardSize) })
         precondition(food == nil || !body.contains(food!.cell))
         self.boardSize = boardSize
         self.rules = rules
@@ -94,16 +111,27 @@ public struct SnakeEngine {
         self.phase = phase
         self.mode = mode
         self.obstacles = obstacles
+        self.movesPerSecond = min(Self.maximumMovesPerSecond, max(0.1, movesPerSecond))
+        self.endlessFoods = endlessFoods
+        self.scrollRows = scrollRows
+        self.endlessSteering = min(1, max(-1, endlessSteering))
     }
 
-    public var level: ArcadeScore { score.nextLevel }
-    /// Same initial pace and playable speed ceiling as the previous game.
-    public var movementInterval: Double { max(0.055, 0.195 / (1 + score.speedValue * 0.048)) }
+    public var level: ArcadeScore { ArcadeScore(String(applesEaten)).nextLevel }
+    /// Score, apple-driven level and movement rate are independent.
+    public var movementInterval: Double { 1 / movesPerSecond }
+    public static func obstacleProbability(forLevel level: Int) -> Double {
+        // Compare before subtracting to keep even extreme fixture levels safe.
+        if level < 10 { return 0 }
+        if level >= 29 { return 1 }
+        return Double(level - 9) * 0.05
+    }
+    public var obstacleProbability: Double { Self.obstacleProbability(forLevel: min(applesEaten, 28) + 1) }
+    public var ratChance: Double { mode == .speedRun ? rules.speedRunRatChance : rules.ratChance }
 
     public mutating func start<R: RandomNumberGenerator>(mode: GameMode = .classic, using rng: inout R) {
-        // Speed Run is deliberately a placeholder, never a playable rule set.
-        guard mode.isPlayable else { phase = .ready; queuedTurns.removeAll(); obstacles = []; return }
         self.mode = mode
+        boardSize = mode.boardSize
         obstacles.removeAll()
         collisionCause = nil
         let mid = boardSize / 2
@@ -113,7 +141,20 @@ public struct SnakeEngine {
         score = ArcadeScore()
         applesEaten = 0
         ratsEaten = 0
+        movesPerSecond = Self.initialMovesPerSecond
+        endlessFoods.removeAll()
+        scrollRows = 0
+        endlessSteering = 0
         phase = .running
+        if mode == .endless {
+            let headY = Int(Double(boardSize) * 0.65)
+            body = (0..<5).map { Cell(x: mid, y: headY + $0) }
+            direction = .up
+            movesPerSecond = 5
+            food = nil
+            endlessFoods = [Food(cell: Cell(x: mid, y: headY - 4), kind: .apple)]
+            return
+        }
         // Always start with an apple, even with unusual test rules.
         food = spawnFood(using: &rng, allowRat: false)
     }
@@ -128,7 +169,13 @@ public struct SnakeEngine {
 
     @discardableResult
     public mutating func turn(_ requested: Direction) -> Bool {
-        guard phase == .running, queuedTurns.count < 2 else { return false }
+        guard phase == .running else { return false }
+        if mode == .endless {
+            // Latest steering wins; up/down both restore straight upward travel.
+            endlessSteering = requested.dx
+            return true
+        }
+        guard queuedTurns.count < 2 else { return false }
         let previous = queuedTurns.last ?? direction
         guard requested != previous, !requested.isOpposite(to: previous) else { return false }
         queuedTurns.append(requested)
@@ -138,6 +185,7 @@ public struct SnakeEngine {
     @discardableResult
     public mutating func tick<R: RandomNumberGenerator>(elapsed: Double, using rng: inout R) -> GameEvent {
         guard phase == .running else { return .none }
+        if mode == .endless { return tickEndless(using: &rng) }
         // Rat time is active gameplay time; pauses/backgrounding do not consume it.
         if let current = food, current.kind == .rat, let remaining = current.secondsRemaining {
             let safeElapsed = elapsed.isFinite ? max(0, elapsed) : 0
@@ -168,18 +216,19 @@ public struct SnakeEngine {
         if eaten.kind == .rat {
             score.multiplyByFive()
             ratsEaten += 1
+            movesPerSecond = min(Self.maximumMovesPerSecond, movesPerSecond * 5)
         } else {
             score.addOne()
             applesEaten += 1
+            movesPerSecond = min(Self.maximumMovesPerSecond, movesPerSecond + Self.appleSpeedIncrement)
         }
         if body.count == boardSize * boardSize {
             food = nil
             phase = .won
             return .won
         }
-        // Roll once for the level actually reached (also when a rat skips levels).
-        // Every roll replaces the old layout, so clear levels have no leftovers.
-        refreshObstacles(using: &rng)
+        // Only apples advance the level. Rats preserve the current obstacle layout.
+        if eaten.kind == .apple { refreshObstacles(using: &rng) }
         food = spawnFood(using: &rng)
         if food == nil { phase = .won; return .won }
         return eaten.kind == .rat ? .rat : .apple
@@ -187,10 +236,10 @@ public struct SnakeEngine {
 
     /// Regenerate once per level, not per tick or per pause/resume.
     /// All open cells stay connected; the snake and nearby escape routes are protected.
-    mutating func refreshObstacles<R: RandomNumberGenerator>(using rng: inout R) {
+    mutating func refreshObstacles<R: RandomNumberGenerator>(using rng: inout R, roll: Double? = nil) {
         obstacles.removeAll()
-        guard mode == .survivor, level >= ArcadeScore("10"),
-              Double.random(in: 0..<1, using: &rng) < rules.obstacleChance else { return }
+        guard mode == .survivor, obstacleProbability > 0,
+              (roll ?? Double.random(in: 0..<1, using: &rng)) < obstacleProbability else { return }
         let head = body[0]
         var protected = Set(body)
         if let food { protected.insert(food.cell) }
@@ -256,8 +305,82 @@ public struct SnakeEngine {
         guard !free.isEmpty else { return nil }
         let cell = free[Int.random(in: 0..<free.count, using: &rng)]
         let isRat = allowRat && applesEaten >= rules.applesBeforeRats
-            && Double.random(in: 0..<1, using: &rng) < rules.ratChance
+            && Double.random(in: 0..<1, using: &rng) < ratChance
         return Food(cell: cell, kind: isRat ? .rat : .apple,
                     secondsRemaining: isRat ? rules.ratLifetime : nil)
+    }
+
+    /// The head stays anchored while the world and trailing body move down one row.
+    /// Only head contact damages health. A contacted horizontal group is consumed.
+    private mutating func tickEndless<R: RandomNumberGenerator>(using rng: inout R) -> GameEvent {
+        guard let oldHead = body.first else { phase = .gameOver; return .collision }
+        let next = Cell(x: min(boardSize - 1, max(0, oldHead.x + endlessSteering)), y: oldHead.y)
+        scrollRows += 1
+        obstacles = Set(obstacles.compactMap { cell in
+            cell.y + 1 < boardSize ? Cell(x: cell.x, y: cell.y + 1) : nil
+        })
+        endlessFoods = endlessFoods.compactMap { item in
+            let moved = Cell(x: item.cell.x, y: item.cell.y + 1)
+            return moved.y < boardSize ? Food(cell: moved, kind: item.kind) : nil
+        }
+        let eaten = endlessFoods.first { $0.cell == next }
+        let hit = obstacles.contains(next)
+        body = body.map { Cell(x: $0.x, y: $0.y + 1) }
+        body.insert(next, at: 0)
+        if let eaten {
+            endlessFoods.removeAll { $0.cell == next }
+            score.addOne()
+            if eaten.kind == .rat { ratsEaten += 1 } else { applesEaten += 1 }
+            movesPerSecond = min(Self.maximumMovesPerSecond, movesPerSecond + (eaten.kind == .rat ? 0.36 : 0.12))
+        } else {
+            body.removeLast()
+        }
+        if hit {
+            // Obstacles spawn as horizontal groups. Consume the entire contiguous group,
+            // including off-head cells, so a single contact never drains multiple segments.
+            var left = next.x
+            var right = next.x
+            while left > 0 && obstacles.contains(Cell(x: left - 1, y: next.y)) { left -= 1 }
+            while right + 1 < boardSize && obstacles.contains(Cell(x: right + 1, y: next.y)) { right += 1 }
+            for x in left...right { obstacles.remove(Cell(x: x, y: next.y)) }
+            body.removeLast()
+            if body.isEmpty {
+                collisionCause = .obstacle
+                phase = .gameOver
+                queuedTurns.removeAll()
+                return .collision
+            }
+        }
+        spawnEndlessWorld(using: &rng)
+        if hit { return .damaged }
+        if let eaten { return eaten.kind == .rat ? .rat : .apple }
+        return .moved
+    }
+
+    private mutating func spawnEndlessWorld<R: RandomNumberGenerator>(using rng: inout R) {
+        if scrollRows.isMultiple(of: 4) {
+            let free = (0..<boardSize).map { Cell(x: $0, y: 0) }.filter { cell in
+                !obstacles.contains(cell) && !endlessFoods.contains(where: { $0.cell == cell })
+            }
+            if !free.isEmpty {
+                let cell = free[Int.random(in: 0..<free.count, using: &rng)]
+                let kind: FoodKind = Double.random(in: 0..<1, using: &rng) < rules.ratChance ? .rat : .apple
+                endlessFoods.append(Food(cell: cell, kind: kind))
+            }
+        }
+        if scrollRows >= 10 && scrollRows.isMultiple(of: 5) {
+            let width = Int.random(in: 1...min(3, boardSize - 2), using: &rng)
+            let foodCells = Set(endlessFoods.map(\.cell))
+            let starts = (0...(boardSize - width)).filter { start in
+                (start..<(start + width)).allSatisfy { x in
+                    let cell = Cell(x: x, y: 0)
+                    return !foodCells.contains(cell) && !obstacles.contains(cell)
+                }
+            }
+            if !starts.isEmpty {
+                let x = starts[Int.random(in: 0..<starts.count, using: &rng)]
+                obstacles.formUnion((x..<(x + width)).map { Cell(x: $0, y: 0) })
+            }
+        }
     }
 }

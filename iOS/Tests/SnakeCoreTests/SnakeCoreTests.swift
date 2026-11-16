@@ -106,14 +106,14 @@ final class SnakeEngineTests: XCTestCase {
     func testAppleGrowsScoresAndSpeedsUp() {
         var game = SnakeEngine(body: [Cell(x: 3,y: 3), Cell(x: 2,y: 3), Cell(x: 1,y: 3)],
                                food: Food(cell: Cell(x: 4,y: 3), kind: .apple),
-                               score: ArcadeScore("9"), rules: GameRules(ratChance: 0))
+                               score: ArcadeScore("9"), applesEaten: 9, rules: GameRules(ratChance: 0))
         let oldInterval = game.movementInterval
         var rng = SeededRandom()
         XCTAssertEqual(game.tick(elapsed: oldInterval, using: &rng), .apple)
         XCTAssertEqual(game.score.digits, "10")
         XCTAssertEqual(game.level.digits, "11")
         XCTAssertEqual(game.body.count, 4)
-        XCTAssertEqual(game.applesEaten, 1)
+        XCTAssertEqual(game.applesEaten, 10)
         XCTAssertLessThan(game.movementInterval, oldInterval)
         XCTAssertFalse(game.body.contains(game.food!.cell))
     }
@@ -125,7 +125,8 @@ final class SnakeEngineTests: XCTestCase {
         var rng = SeededRandom()
         XCTAssertEqual(game.tick(elapsed: 0.1, using: &rng), .rat)
         XCTAssertEqual(game.score.digits, "60")
-        XCTAssertEqual(game.level.digits, "61")
+        XCTAssertEqual(game.level.digits, "4")
+        XCTAssertEqual(game.movesPerSecond, SnakeEngine.initialMovesPerSecond * 5, accuracy: 0.000001)
         XCTAssertEqual(game.ratsEaten, 1)
         XCTAssertEqual(game.applesEaten, 3)
         XCTAssertEqual(game.body.count, 4)
@@ -216,11 +217,24 @@ final class SnakeEngineTests: XCTestCase {
         XCTAssertEqual(game.score.digits, "1")
     }
 
-    func testLargeScoreHasFinitePlayableSpeed() {
+    func testLargeScoreDoesNotChangeLevelOrSpeed() {
         let game = SnakeEngine(body: [Cell(x: 3,y: 3), Cell(x: 2,y: 3), Cell(x: 1,y: 3)],
             food: safeFood, score: ArcadeScore(String(repeating: "9", count: 250)))
-        XCTAssertEqual(game.movementInterval, 0.055)
+        XCTAssertEqual(game.movementInterval, 0.195)
         XCTAssertTrue(game.movementInterval.isFinite)
-        XCTAssertEqual(game.level.digits, "1" + String(repeating: "0", count: 250))
+        XCTAssertEqual(game.level.digits, "1")
+    }
+
+    func testRatMultipliesCurrentSpeedAndCapsItWithoutChangingLevel() {
+        for rate in [2.0, 12.0, 30.0] {
+            var game = SnakeEngine(body: [Cell(x: 3,y: 3), Cell(x: 2,y: 3)],
+                food: Food(cell: Cell(x: 4,y: 3), kind: .rat, secondsRemaining: 8),
+                applesEaten: 8, movesPerSecond: rate)
+            var rng = SeededRandom()
+            XCTAssertEqual(game.tick(elapsed: 0.01, using: &rng), .rat)
+            XCTAssertEqual(game.movesPerSecond, min(30, rate * 5), accuracy: 0.000001)
+            XCTAssertEqual(game.level.digits, "9")
+            XCTAssertEqual(game.score.digits, "0")
+        }
     }
 }

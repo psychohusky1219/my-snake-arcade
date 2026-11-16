@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'iOS/**'
+      - 'Web/**'
+      - 'scripts/test-web.mjs'
       - 'scripts/build-ios.sh'
       - '.github/workflows/build-ios.yml'
       - 'docs/INSTALL-WINDOWS.md'

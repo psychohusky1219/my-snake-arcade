@@ -72,7 +72,7 @@ private struct SnakeMenuView: View {
                 .font(.system(size: 40, weight: .black, design: .rounded))
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
-            Text("No walls. Bigger scores.")
+            Text("Four ways to keep moving.")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(ArcadeTheme.secondary)
         }
@@ -136,8 +136,14 @@ private struct SnakeMenuView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .padding(.vertical, 6)
             }
-            Text("🍎 +1 point    🐀 Your score ×5")
+            Text(session.selectedMode == .endless
+                 ? "Food +1 point & length · 🐀 Faster speed boost"
+                 : "🍎 +1 point & level · 🐀 Score & speed ×5, same level")
                 .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(ArcadeTheme.secondary)
+                .multilineTextAlignment(.center)
+            Text("Speed limit: 30 moves/sec")
+                .font(.system(size: 10))
                 .foregroundStyle(ArcadeTheme.secondary)
         }
         .frame(maxWidth: 360)
@@ -148,17 +154,38 @@ private struct SnakeMenuView: View {
             Text("CHOOSE YOUR GAME")
                 .font(.system(size: 9, weight: .bold)).tracking(1.5)
                 .foregroundStyle(ArcadeTheme.secondary)
-            HStack(spacing: 7) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 7) {
                 gameChoice(.classic, symbol: "leaf.fill")
                 gameChoice(.survivor, symbol: "shield.fill")
                 gameChoice(.speedRun, symbol: "bolt.fill")
+                gameChoice(.endless, symbol: "infinity")
             }
-            Text(session.selectedMode == .survivor
-                 ? "Levels 1–9 are clear. From level 10, random obstacle levels. Hit a block and the run ends."
-                 : "The original game. No obstacles, wall wrap and 5× rats.")
+            Text(gameModeDescription)
                 .font(.system(size: 10)).foregroundStyle(ArcadeTheme.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var gameModeDescription: String {
+        switch session.selectedMode {
+        case .classic:
+            return "20×20 · Wall wrap, no obstacles. Apples advance your level; rats multiply score and speed."
+        case .survivor:
+            return "28×28 · Levels 1–9 are clear. Obstacle chance: 5% at level 10, then +5 percentage points per level; 100% at 29+. Blocks end the run."
+        case .speedRun:
+            return "35×35 · More rats: 45% after three apples. Wall wrap, no timer or obstacles. Rats keep your level unchanged."
+        case .endless:
+            return "20×20 · Climb with 5 segments. Food adds 1; each block hit takes 1. Left/right steer; up/down straighten. Side edges stop sideways movement."
+        }
+    }
+
+    private func gameModeSubtitle(_ mode: GameMode) -> String {
+        switch mode {
+        case .classic: return "20×20 · Original"
+        case .survivor: return "28×28 · Obstacles 10+"
+        case .speedRun: return "35×35 · More rats"
+        case .endless: return "20×20 · Keep climbing"
         }
     }
 
@@ -168,18 +195,16 @@ private struct SnakeMenuView: View {
             VStack(spacing: 4) {
                 Image(systemName: symbol).font(.system(size: 18, weight: .bold))
                 Text(mode.title).font(.system(size: 12, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
-                Text(mode.isPlayable ? (mode == .survivor ? "Obstacles 10+" : "Original") : "Coming soon")
+                Text(gameModeSubtitle(mode))
                     .font(.system(size: 8, weight: .medium))
             }
             .frame(maxWidth: .infinity).frame(height: 72)
             .foregroundStyle(selected ? ArcadeTheme.background : .white)
             .background(selected ? ArcadeTheme.lime : ArcadeTheme.panel,
                         in: RoundedRectangle(cornerRadius: 13))
-            .opacity(mode.isPlayable ? 1 : 0.45)
         }
         .buttonStyle(.plain)
-        .disabled(!mode.isPlayable)
-        .accessibilityLabel(mode.title + (mode.isPlayable ? "" : ", coming soon"))
+        .accessibilityLabel(mode.title + ", " + gameModeSubtitle(mode))
         .accessibilityValue(selected ? "Selected" : "Not selected")
     }
 
@@ -258,7 +283,9 @@ private struct SnakePlayView: View {
                     status
                     Spacer(minLength: 0)
                     controls(buttonSide: arrowSide)
-                    Text(useTouchPad ? "Swipe on the touch pad below the board" : "Use the arrow pad to steer")
+                    Text(session.engine.mode == .endless
+                         ? "← / → steer · ↑ / ↓ go straight upward"
+                         : (useTouchPad ? "Swipe on the touch pad below the board" : "Use the arrow pad to steer"))
                         .font(.system(size: 10))
                         .foregroundStyle(ArcadeTheme.secondary)
                 }
@@ -300,7 +327,10 @@ private struct SnakePlayView: View {
     private var scores: some View {
         HStack(spacing: 7) {
             metric("SCORE", value: session.engine.score, color: ArcadeTheme.lime)
-            metric("LEVEL", value: session.engine.level, color: ArcadeTheme.gold)
+            metric(session.engine.mode == .endless ? "LENGTH" : "LEVEL",
+                   value: session.engine.mode == .endless
+                    ? ArcadeScore(String(session.engine.body.count)) : session.engine.level,
+                   color: ArcadeTheme.gold)
             metric("BEST", value: session.best, color: .white)
         }
         .frame(height: 54)
@@ -348,11 +378,13 @@ private struct SnakePlayView: View {
             VStack(spacing: 12) {
                 Text(paused ? "⏸" : (won ? "🏆" : "🐍"))
                     .font(.system(size: 38))
-                Text(paused ? "PAUSED" : (won ? "BOARD CLEARED!" : (session.engine.collisionCause == .obstacle ? "OBSTACLE HIT!" : "GAME OVER")))
+                Text(overlayTitle)
                     .font(.system(size: 23, weight: .black, design: .rounded))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
-                Text("Score \(session.engine.score.compact) · Level \(session.engine.level.compact)")
+                Text(session.engine.mode == .endless
+                     ? "Score \(session.engine.score.compact) · Length \(session.engine.body.count)"
+                     : "Score \(session.engine.score.compact) · Level \(session.engine.level.compact)")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(ArcadeTheme.secondary)
                 Button {
@@ -371,21 +403,31 @@ private struct SnakePlayView: View {
         }
     }
 
+    private var overlayTitle: String {
+        if session.engine.phase == .paused { return "PAUSED" }
+        if session.engine.phase == .won { return "BOARD CLEARED!" }
+        if session.engine.mode == .endless { return "NO SEGMENTS LEFT" }
+        return session.engine.collisionCause == .obstacle ? "OBSTACLE HIT!" : "GAME OVER"
+    }
+
     private var status: some View {
         HStack(spacing: 6) {
-            if let food = session.engine.food, food.kind == .rat {
-                Text("🐀 5× · \(Int(ceil(food.secondsRemaining ?? 0)))s")
+            if !session.lastReward.isEmpty {
+                Text(session.lastReward)
+                    .foregroundStyle(session.lastReward.hasPrefix("−") ? ArcadeTheme.gold : ArcadeTheme.lime)
+            } else if session.engine.mode != .endless, let food = session.engine.food, food.kind == .rat {
+                Text("🐀 Score/speed ×5 · \(Int(ceil(food.secondsRemaining ?? 0)))s")
                     .foregroundStyle(ArcadeTheme.gold)
-            } else if !session.lastReward.isEmpty {
-                Text(session.lastReward).foregroundStyle(ArcadeTheme.lime)
             } else {
-                Text(String(format: "⚡ %.1f moves/sec", 1 / session.engine.movementInterval))
+                Text(String(format: "⚡ %.1f moves/sec", session.engine.movesPerSecond))
                     .foregroundStyle(ArcadeTheme.secondary)
             }
             Spacer(minLength: 4)
             if session.engine.mode == .survivor {
                 Text(session.engine.obstacles.isEmpty ? "Clear level" : "⚠ Obstacle level")
                     .foregroundStyle(session.engine.obstacles.isEmpty ? ArcadeTheme.lime : ArcadeTheme.gold)
+            } else if session.engine.mode == .endless {
+                Text("↑ Keep climbing").foregroundStyle(ArcadeTheme.lime)
             } else {
                 Text("↔ Wrap on").foregroundStyle(ArcadeTheme.lime)
             }
@@ -412,7 +454,7 @@ private struct SnakePlayView: View {
             .disabled(session.engine.phase != .running && session.engine.phase != .paused)
             Group {
                 if useTouchPad {
-                    SnakeTouchPad(onTurn: session.turn)
+                    SnakeTouchPad(onTurn: session.turn, isEndless: session.engine.mode == .endless)
                         .id(session.engine.phase == .running)
                         .allowsHitTesting(session.engine.phase == .running)
                         .frame(height: buttonSide * 2 + 6)
@@ -451,7 +493,8 @@ private struct SnakePlayView: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.12), lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Move \(String(describing: direction))")
+        .accessibilityLabel(session.engine.mode == .endless && (direction == .up || direction == .down)
+                            ? "Go straight upward" : "Move \(String(describing: direction))")
     }
 
     private func utilityButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
@@ -472,6 +515,7 @@ private struct SnakePlayView: View {
 // Only this separate control surface accepts swipe gestures. The grid is display-only.
 private struct SnakeTouchPad: View {
     let onTurn: (Direction) -> Void
+    let isEndless: Bool
     @GestureState private var touching = false
     @State private var previousTranslation = CGSize.zero
     @State private var fingerPosition = CGPoint.zero
@@ -490,7 +534,7 @@ private struct SnakeTouchPad: View {
                         Spacer(minLength: 4)
                         VStack(spacing: 5) {
                             Text("TOUCH PAD").font(.system(size: 10, weight: .heavy)).tracking(1)
-                            Text("Swipe here").font(.system(size: 12, weight: .semibold))
+                            Text(isEndless ? "↑ / ↓ straight" : "Swipe here").font(.system(size: 12, weight: .semibold))
                         }
                         Spacer(minLength: 4)
                         Image(systemName: "arrow.right")
@@ -521,9 +565,11 @@ private struct SnakeTouchPad: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Touch pad. Swipe here to steer. The game board does not respond to swipes.")
-        .accessibilityAction(named: Text("Move up")) { onTurn(.up) }
-        .accessibilityAction(named: Text("Move down")) { onTurn(.down) }
+        .accessibilityLabel(isEndless
+                            ? "Touch pad. Swipe left or right to steer; up or down to go straight upward."
+                            : "Touch pad. Swipe here to steer. The game board does not respond to swipes.")
+        .accessibilityAction(named: Text(isEndless ? "Go straight upward" : "Move up")) { onTurn(.up) }
+        .accessibilityAction(named: Text(isEndless ? "Straighten" : "Move down")) { onTurn(.down) }
         .accessibilityAction(named: Text("Move left")) { onTurn(.left) }
         .accessibilityAction(named: Text("Move right")) { onTurn(.right) }
     }
@@ -555,6 +601,16 @@ private struct SnakeBoardCanvas: View {
             }
             context.stroke(grid, with: .color(.white.opacity(0.045)), lineWidth: 0.6)
 
+            if engine.mode == .endless {
+                var scrollingLines = Path()
+                for i in 0...engine.boardSize where (i - engine.scrollRows % 5).isMultiple(of: 5) {
+                    let y = CGFloat(i) * cellSize
+                    scrollingLines.move(to: CGPoint(x: 0, y: y))
+                    scrollingLines.addLine(to: CGPoint(x: size.width, y: y))
+                }
+                context.stroke(scrollingLines, with: .color(ArcadeTheme.lime.opacity(0.14)), lineWidth: 1)
+            }
+
             for obstacle in engine.obstacles {
                 let inset = max(1, cellSize * 0.08)
                 let rect = CGRect(x: CGFloat(obstacle.x) * cellSize + inset,
@@ -571,7 +627,8 @@ private struct SnakeBoardCanvas: View {
                 context.stroke(cross, with: .color(ArcadeTheme.background.opacity(0.6)), lineWidth: max(1, cellSize * 0.08))
             }
 
-            if let food = engine.food {
+            let visibleFoods: [Food] = engine.mode == .endless ? engine.endlessFoods : (engine.food.map { [$0] } ?? [])
+            for food in visibleFoods {
                 let center = CGPoint(x: (CGFloat(food.cell.x) + 0.5) * cellSize,
                                      y: (CGFloat(food.cell.y) + 0.5) * cellSize)
                 if food.kind == .rat {
@@ -591,6 +648,7 @@ private struct SnakeBoardCanvas: View {
             }
 
             for (index, cell) in engine.body.enumerated().reversed() {
+                guard (0..<engine.boardSize).contains(cell.x), (0..<engine.boardSize).contains(cell.y) else { continue }
                 let inset = max(0.7, cellSize * 0.06)
                 let rect = CGRect(x: CGFloat(cell.x) * cellSize + inset,
                                   y: CGFloat(cell.y) * cellSize + inset,

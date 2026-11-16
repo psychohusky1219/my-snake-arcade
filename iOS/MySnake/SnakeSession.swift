@@ -115,7 +115,6 @@ final class SnakeSession: ObservableObject {
 
     private func advance(by interval: Double) {
         guard engine.phase == .running else { return }
-        let previousScore = engine.score
         let event = engine.tick(elapsed: interval, using: &random)
         if rewardTicks > 0 {
             rewardTicks -= 1
@@ -123,13 +122,21 @@ final class SnakeSession: ObservableObject {
         }
         switch event {
         case .apple:
-            lastReward = "+1 POINT · LEVEL \(engine.level.compact)"
+            lastReward = engine.mode == .endless
+                ? "+1 LENGTH · +1 POINT"
+                : "+1 POINT · LEVEL \(engine.level.compact)"
             rewardTicks = 9
             if hapticsEnabled { impact.impactOccurred(intensity: 0.65) }
         case .rat:
-            lastReward = "5×! \(previousScore.compact) → \(engine.score.compact)"
+            lastReward = engine.mode == .endless
+                ? "RAT! +1 LENGTH · FASTER BOOST"
+                : "5× SCORE & SPEED · LEVEL \(engine.level.compact)"
             rewardTicks = 20
             if hapticsEnabled { notification.notificationOccurred(.success) }
+        case .damaged:
+            lastReward = "−1 SEGMENT · LENGTH \(engine.body.count)"
+            rewardTicks = 12
+            if hapticsEnabled { notification.notificationOccurred(.warning) }
         case .collision:
             if hapticsEnabled { notification.notificationOccurred(.error) }
         case .won:
