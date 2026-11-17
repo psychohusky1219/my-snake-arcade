@@ -226,13 +226,13 @@ final class SnakeEngineTests: XCTestCase {
     }
 
     func testRatMultipliesCurrentSpeedAndCapsItWithoutChangingLevel() {
-        for rate in [2.0, 12.0, 30.0] {
+        for rate in [2.0, 8.0, 12.0, 30.0, 60.0] {
             var game = SnakeEngine(body: [Cell(x: 3,y: 3), Cell(x: 2,y: 3)],
                 food: Food(cell: Cell(x: 4,y: 3), kind: .rat, secondsRemaining: 8),
                 applesEaten: 8, movesPerSecond: rate)
             var rng = SeededRandom()
             XCTAssertEqual(game.tick(elapsed: 0.01, using: &rng), .rat)
-            XCTAssertEqual(game.movesPerSecond, min(30, rate * 5), accuracy: 0.000001)
+            XCTAssertEqual(game.movesPerSecond, min(60, rate * 5), accuracy: 0.000001)
             XCTAssertEqual(game.level.digits, "9")
             XCTAssertEqual(game.score.digits, "0")
         }

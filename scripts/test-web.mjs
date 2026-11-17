@@ -88,13 +88,13 @@ test('rat speed cap and zero score are independent', () => {
   game.tick();
   assert.equal(game.run('score'), 0n);
   assert.equal(game.run('level'), 1n);
-  assert.equal(game.run('speed'), 30);
-  near(game.run('millis()'), 1000 / 30);
+  assert.equal(game.run('speed'), 60);
+  near(game.run('millis()'), 1000 / 60);
 });
 
 test('reset restores starting speed and separate progression', () => {
   const game = session();
-  game.run('start(); speed=30; score=10000n; apples=7; level=8n; start();');
+  game.run('start(); speed=60; score=10000n; apples=7; level=8n; start();');
   assert.equal(game.run('score'), 0n);
   assert.equal(game.run('level'), 1n);
   near(game.run('millis()'), 210);
@@ -331,9 +331,9 @@ test('Endless cleans offscreen scenery, freezes while paused and fully resets', 
 
 test('Endless gradual acceleration stops at the shared responsiveness cap', () => {
   const game = session();
-  game.run("selectGameMode('endless');start();speed=29.9;endlessFoods=[{x:snake[0].x,y:snake[0].y-1,type:'rat'}]");
+  game.run("selectGameMode('endless');start();speed=59.9;endlessFoods=[{x:snake[0].x,y:snake[0].y-1,type:'rat'}]");
   game.tick();
-  assert.equal(game.run('speed'), 30);
+  assert.equal(game.run('speed'), 60);
 });
 
 test('Speed Run starts with twelve unique persistent pickups including immediate rats and one blue bird', () => {
@@ -520,7 +520,7 @@ test('restart and mode changes cannot transfer shields or recovery state', () =>
   handlers.get('activate')({waitUntil:value=>{pending=value}});await pending;
   assert.equal(cacheData.has('my-snake-four-modes-v5'),false);
   assert.equal(cacheData.has('unrelated-cache'),true);
-  assert.ok(cacheData.get('my-snake-speed-birds-v6').has('./index.html'));
+  assert.ok(cacheData.get('my-snake-speed-60-v7').has('./index.html'));
   handlers.get('fetch')({request:{method:'GET',url:'https://snake.test/?source=homescreen',mode:'navigate'},respondWith:value=>{pending=value}});
   assert.equal((await pending).cached,'./index.html');
   passed++;console.log('PASS service worker upgrades its own cache and serves the game offline');

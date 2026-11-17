@@ -61,7 +61,7 @@ public struct GameRules: Sendable {
 /// Pure Swift, deterministic with an injected RNG, and independently testable.
 public struct SnakeEngine {
     public static let initialMovesPerSecond = 1 / 0.195
-    public static let maximumMovesPerSecond = 30.0
+    public static let maximumMovesPerSecond = 60.0
     public static let appleSpeedIncrement = 0.048 / 0.195
     public static let speedRunPickupTarget = 12
     public private(set) var boardSize: Int

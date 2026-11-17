@@ -183,9 +183,9 @@ final class EndlessTests: XCTestCase {
     }
     func testEndlessSpeedCap() {
         for kind in [FoodKind.apple,.rat] {
-            var game=fixture(foods:[Food(cell:Cell(x:10,y:12),kind:kind)],speed:29.99),rng=EndlessRNG()
+            var game=fixture(foods:[Food(cell:Cell(x:10,y:12),kind:kind)],speed:59.99),rng=EndlessRNG()
             game.tick(elapsed:0.03,using:&rng)
-            XCTAssertEqual(game.movesPerSecond,30)
+            XCTAssertEqual(game.movesPerSecond,60)
         }
     }
     func testRestartAndModeSwitchClearAllEndlessState() {

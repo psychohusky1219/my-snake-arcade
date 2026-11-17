@@ -191,7 +191,7 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
     </div>
     <button class="action" id="restart">Restart ↻</button>
    </div>
-   <div class="footer" id="game-footer">🐀 Rat bonus lasts 8 seconds · Speed capped at 30 moves/sec</div>
+   <div class="footer" id="game-footer">🐀 Rat bonus lasts 8 seconds · Speed capped at 60 moves/sec</div>
   </div>
   <div class="toast" id="toast">🐀 RAT! Score ×5</div>
  </section>
@@ -204,7 +204,7 @@ const menu=get('menu'),game=get('game'),field=get('field'),stage=get('stage'),ca
 const MODE_SIZES={classic:24,survivor:34,speedRun:42,endless:24};
 const MODE_TITLES={classic:'Classic',survivor:'Survivor',speedRun:'Speed Run',endless:'Endless'};
 let COUNT=24,CELL=20; // The fixed 480 × 480 canvas fits every grid.
-const INITIAL_SPEED=1000/210,APPLE_SPEED_GAIN=INITIAL_SPEED*.055,MAX_SPEED=30;
+const INITIAL_SPEED=1000/210,APPLE_SPEED_GAIN=INITIAL_SPEED*.055,MAX_SPEED=60;
 let speed=INITIAL_SPEED;
 const direction={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
 let snake=[],food=null,heading=direction.right,turns=[],score=0n,level=1n,best=0n,apples=0,sinceRat=0,mode='menu',timeout=null,lastTime=0,ratRemaining=0,fullscreenRequested=false,toastTimer=null;
@@ -232,7 +232,7 @@ function selectGameMode(value){
  }
  get('mode-legend').innerHTML=value==='endless'?'<span>🍎🐀 +1 segment</span><span>■ −1 segment</span><span>↑ Keep moving</span>':value==='speedRun'?'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span style="color:#79e9ff">Blue bird · 1-hit shield</span>':'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span>↔ Through walls</span>';
  get('level-label').textContent=value==='endless'?'LENGTH':'LEVEL';
- get('game-footer').textContent=value==='endless'?'Food +1 · Block −1 · Rats accelerate faster · × to exit':value==='speedRun'?'12 pickups · Blue bird: 10 seconds or 1 hit · Speed capped at 30':'🐀 Rat lasts 8 seconds · Speed capped at 30 moves/sec · × to exit';
+ get('game-footer').textContent=value==='endless'?'Food +1 · Block −1 · Rats accelerate faster · × to exit':value==='speedRun'?'12 pickups · Blue bird: 10 seconds or 1 hit · Speed capped at 60':'🐀 Rat lasts 8 seconds · Speed capped at 60 moves/sec · × to exit';
  const title=MODE_TITLES[value].toUpperCase();
  get('play').textContent='PLAY '+title+' ⛶';
  get('run-mode').textContent=title;

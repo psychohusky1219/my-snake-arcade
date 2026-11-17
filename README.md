@@ -18,7 +18,7 @@ choices stay on the device; browser and native records remain separate.
 Classic, Survivor and Speed Run start with three segments. Apples add one point,
 one segment, one level and a small speed increment. Rats multiply current score
 and current speed by five and add one segment, but do not change level. Speed
-caps at 30 moves/sec. Each edition retains its original opening and apple pace.
+caps at 60 moves/sec. Each edition retains its original opening and apple pace.
 In Classic/Survivor, rats become eligible after three apples, with an 18% chance
 and an eight-second active-play lifetime. Speed Run rats are available immediately
 and stay on the board until eaten.
@@ -43,7 +43,7 @@ Endless starts with five segments at 5 moves/sec. The head stays near the lower
 middle while the world moves down. Left/right maintain diagonal steering;
 up/down straighten. Side edges clamp; body crossings are allowed. Every food
 adds one point and exactly one segment. Apple speed gain is 0.12 moves/sec;
-rat gain is 0.36, up to 30. One food spawns every four rows, with an 18% rat
+rat gain is 0.36, up to 60. One food spawns every four rows, with an 18% rat
 chance. Short obstacle groups spawn every five rows starting at row ten.
 Head contact consumes the whole horizontal obstacle group and removes exactly
 one segment, so the same obstacle cannot repeatedly drain the snake. Tail

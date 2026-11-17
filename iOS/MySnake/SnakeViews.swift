@@ -143,7 +143,7 @@ private struct SnakeMenuView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(ArcadeTheme.secondary)
                 .multilineTextAlignment(.center)
-            Text("Speed limit: 30 moves/sec")
+            Text("Speed limit: 60 moves/sec")
                 .font(.system(size: 10))
                 .foregroundStyle(ArcadeTheme.secondary)
             if session.selectedMode == .speedRun {

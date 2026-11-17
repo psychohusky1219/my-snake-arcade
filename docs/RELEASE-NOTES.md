@@ -1,3 +1,11 @@
+# My Snake — Double maximum speed
+
+- Doubled the maximum snake speed from 30 to 60 moves per second in Classic, Survivor, Speed Run and Endless, in both the browser and native iPhone editions.
+- Starting speeds and acceleration rules remain unchanged. Updated the speed-limit labels and cap tests.
+- Existing scores, controls, shields and app identity are preserved.
+
+**This IPA is unsigned.** Install or update through Sideloadly using the same Apple account and bundle-ID settings. Keep the existing app installed to preserve its data.
+
 # My Snake 4.1 — Speed Run food field and blue bird shields
 
 - Speed Run now starts with 12 pickups: six apples, five rats and one blue bird. They stay where they are until eaten, including rats; there is no food expiry timer in this mode.
