@@ -18,9 +18,9 @@ choices stay on the device; browser and native records remain separate.
 Classic, Survivor and Speed Run start with three segments. Apples add one point,
 one segment, one level and a small speed increment. Rats multiply current score
 and current speed by five and add one segment, but do not change level. Speed
-caps at 60 moves/sec, except browser Speed Run caps at 100 moves/sec. Each edition retains its original opening and apple pace.
+caps at 60 moves/sec, except Speed Run caps at 100 moves/sec in both editions. Each edition retains its original opening and apple pace.
 In Classic/Survivor, rats become eligible after three apples, with an 18% chance
-and stay until eaten in the browser (native retains its eight-second lifetime). Speed Run rats are available immediately
+and stay until eaten in both editions. Speed Run rats are available immediately
 and stay on the board until eaten.
 
 Speed Run starts with twelve pickups: six apples, five rats and one blue bird.

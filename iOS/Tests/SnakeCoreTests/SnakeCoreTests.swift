@@ -120,7 +120,7 @@ final class SnakeEngineTests: XCTestCase {
 
     func testRatMultipliesCurrentScoreNotAddsFive() {
         var game = SnakeEngine(body: [Cell(x: 3,y: 3), Cell(x: 2,y: 3), Cell(x: 1,y: 3)],
-                               food: Food(cell: Cell(x: 4,y: 3), kind: .rat, secondsRemaining: 8),
+                               food: Food(cell: Cell(x: 4,y: 3), kind: .rat),
                                score: ArcadeScore("12"), applesEaten: 3)
         var rng = SeededRandom()
         XCTAssertEqual(game.tick(elapsed: 0.1, using: &rng), .rat)
@@ -132,29 +132,39 @@ final class SnakeEngineTests: XCTestCase {
         XCTAssertEqual(game.body.count, 4)
     }
 
-    func testRatExpirationRestoresApple() {
-        var game = SnakeEngine(body: [Cell(x: 3,y: 3), Cell(x: 2,y: 3), Cell(x: 1,y: 3)],
-                               food: Food(cell: Cell(x: 4,y: 3), kind: .rat, secondsRemaining: 0.05),
-                               score: ArcadeScore("12"))
-        var rng = SeededRandom()
-        XCTAssertEqual(game.tick(elapsed: 0.1, using: &rng), .apple)
-        XCTAssertEqual(game.score.digits, "13")
+    func testClassicAndSurvivorRatsPersistUntilEaten() {
+        for mode in [GameMode.classic, .survivor] {
+            let rat = Food(cell: Cell(x: 8,y: 3), kind: .rat)
+            var game = SnakeEngine(body: [Cell(x: 3,y: 3), Cell(x: 2,y: 3), Cell(x: 1,y: 3)],
+                                   food: rat, score: ArcadeScore("12"), applesEaten: 3, mode: mode)
+            var rng = SeededRandom()
+            for _ in 0..<4 {
+                XCTAssertEqual(game.tick(elapsed: 100, using: &rng), .moved)
+                XCTAssertEqual(game.food, rat)
+            }
+            game.pause()
+            let body = game.body
+            XCTAssertFalse(game.turn(.up))
+            XCTAssertEqual(game.tick(elapsed: 100, using: &rng), .none)
+            XCTAssertEqual(game.body, body)
+            XCTAssertEqual(game.food, rat)
+            game.resume()
+            XCTAssertEqual(game.tick(elapsed: 100, using: &rng), .rat)
+            XCTAssertEqual(game.score.digits, "60")
+            XCTAssertEqual(game.level.digits, "4")
+            XCTAssertEqual(game.body.count, 4)
+        }
     }
 
-    func testPauseFreezesMovementAndRatTimer() {
-        var game = SnakeEngine(body: [Cell(x: 3,y: 3), Cell(x: 2,y: 3), Cell(x: 1,y: 3)],
-                               food: Food(cell: Cell(x: 8,y: 3), kind: .rat, secondsRemaining: 8),
-                               score: ArcadeScore("3"))
-        let body = game.body
-        game.pause()
-        var rng = SeededRandom()
-        XCTAssertFalse(game.turn(.up))
-        XCTAssertEqual(game.tick(elapsed: 50, using: &rng), .none)
-        XCTAssertEqual(game.body, body)
-        XCTAssertEqual(game.food!.secondsRemaining!, 8)
-        game.resume()
-        XCTAssertEqual(game.tick(elapsed: 0.1, using: &rng), .moved)
-        XCTAssertEqual(game.food!.secondsRemaining!, 7.9, accuracy: 0.00001)
+    func testEachModeHasItsOwnSpeedCapAndFixtureClamp() {
+        for mode in GameMode.allCases {
+            let cap = mode == .speedRun ? 100.0 : 60.0
+            XCTAssertEqual(mode.maximumMovesPerSecond, cap)
+            let game = SnakeEngine(body: [Cell(x: 3,y: 3)], food: nil,
+                                   mode: mode, movesPerSecond: 1000)
+            XCTAssertEqual(game.movesPerSecond, cap)
+            XCTAssertEqual(game.movementInterval, 1 / cap, accuracy: 0.000001)
+        }
     }
 
     func testMovingIntoVacatingTailIsAllowed() {
@@ -228,7 +238,7 @@ final class SnakeEngineTests: XCTestCase {
     func testRatMultipliesCurrentSpeedAndCapsItWithoutChangingLevel() {
         for rate in [2.0, 8.0, 12.0, 30.0, 60.0] {
             var game = SnakeEngine(body: [Cell(x: 3,y: 3), Cell(x: 2,y: 3)],
-                food: Food(cell: Cell(x: 4,y: 3), kind: .rat, secondsRemaining: 8),
+                food: Food(cell: Cell(x: 4,y: 3), kind: .rat),
                 applesEaten: 8, movesPerSecond: rate)
             var rng = SeededRandom()
             XCTAssertEqual(game.tick(elapsed: 0.01, using: &rng), .rat)

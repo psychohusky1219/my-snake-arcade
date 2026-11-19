@@ -143,7 +143,7 @@ private struct SnakeMenuView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(ArcadeTheme.secondary)
                 .multilineTextAlignment(.center)
-            Text("Speed limit: 60 moves/sec")
+            Text("Speed limit: \(Int(session.selectedMode.maximumMovesPerSecond)) moves/sec")
                 .font(.system(size: 10))
                 .foregroundStyle(ArcadeTheme.secondary)
             if session.selectedMode == .speedRun {
@@ -457,7 +457,7 @@ private struct SnakePlayView: View {
                 Text(session.lastReward)
                     .foregroundStyle(session.lastReward.hasPrefix("−") ? ArcadeTheme.gold : ArcadeTheme.lime)
             } else if session.engine.mode != .endless, let food = session.engine.food, food.kind == .rat {
-                Text("🐀 Score/speed ×5 · \(Int(ceil(food.secondsRemaining ?? 0)))s")
+                Text("🐀 Score/speed ×5 · Stays until eaten")
                     .foregroundStyle(ArcadeTheme.gold)
             } else {
                 Text(String(format: "⚡ %.1f moves/sec", session.engine.movesPerSecond))

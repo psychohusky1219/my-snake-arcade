@@ -1,3 +1,12 @@
+# My Snake 4.2 — Faster Speed Run and no rat countdowns
+
+- Native Speed Run now caps at 100 moves per second. Classic, Survivor and Endless remain capped at 60. Opening speeds and acceleration rules are unchanged.
+- Removed the rat expiry timer and countdown UI entirely. Classic and Survivor rats remain until eaten; Speed Run pickups and scrolling Endless food retain their existing persistence.
+- Blue bird shields are unchanged: ten active-play seconds or one collision. The shield countdown and pause behavior remain intact.
+- Native app version is 4.2 (bundle build 6). Saved scores, controls and bundle ID are unchanged.
+
+**This IPA is unsigned.** Update with Sideloadly using the same Apple account and bundle-ID settings, without deleting the existing app. Physical iPhone gameplay has not been tested.
+
 # My Snake — Double maximum speed
 
 - Doubled the maximum snake speed from 30 to 60 moves per second in Classic, Survivor, Speed Run and Endless, in both the browser and native iPhone editions.

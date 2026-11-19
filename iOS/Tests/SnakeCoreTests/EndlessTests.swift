@@ -179,7 +179,6 @@ final class EndlessTests: XCTestCase {
         game.tick(elapsed:0.2,using:&rng)
         XCTAssertEqual(game.applesEaten,0)
         XCTAssertEqual(game.endlessFoods.first?.kind,.rat)
-        XCTAssertNil(game.endlessFoods.first?.secondsRemaining)
     }
     func testEndlessSpeedCap() {
         for kind in [FoodKind.apple,.rat] {

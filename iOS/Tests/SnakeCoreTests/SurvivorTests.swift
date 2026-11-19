@@ -150,7 +150,7 @@ final class SurvivorTests: XCTestCase {
     }
     func testRatDoesNotAdvanceLevelProbabilityOrRerollExistingLayout() {
         let old: Set<Cell> = [Cell(x:1,y:1),Cell(x:1,y:2)]
-        var game = fixture(apples:8,food:Food(cell:Cell(x:15,y:14),kind:.rat,secondsRemaining:8),obstacles:old)
+        var game = fixture(apples:8,food:Food(cell:Cell(x:15,y:14),kind:.rat),obstacles:old)
         var rng = SurvivorRNG(state: 5)
         XCTAssertEqual(game.tick(elapsed:0.1,using:&rng),.rat)
         XCTAssertEqual(game.score.digits,"40")

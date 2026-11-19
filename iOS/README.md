@@ -1,6 +1,6 @@
 # My Snake — Native iPhone Edition
 
-Version 2.0 · Swift/SwiftUI · Personal use
+Version 4.2 · Swift/SwiftUI · Personal use
 
 **This is a native app source project, not a ready-to-install IPA.** The earlier
 project used a WKWebView to run bundled HTML. This version replaces that layer
@@ -32,18 +32,21 @@ Apple account. This source ZIP alone does not perform those steps.
 ## Your game rules
 
 - The snake wraps through all four edges. Touching its own body ends the game.
-- Swipe continuously on the board or tap the four arrow buttons. Two turns can be
+- Choose the separate Touch Pad or Arrow Pad before playing. Two turns can be
   buffered; direct reversal into the snake's neck is blocked.
-- Each apple adds one point. Level is always score + 1.
+- Each apple adds one point and one level; rats do not change level.
 - After three apples, each new food has an 18% chance of being a rat instead of
-  an apple. A rat lasts for about eight seconds of active gameplay, then becomes
-  an apple in that cell. Pause time does not consume its lifetime.
+  an apple in Classic and Survivor. Rats have no countdown and persist until eaten.
+  Speed Run and Endless foods also have no expiry timer.
 - Eating a rat multiplies the score at that instant by exactly five: 12 becomes 60.
   Repeated multipliers use exact decimal arithmetic, so they do not overflow the
   device's fixed-size integer range. Very large values are abbreviated on screen;
   accessibility labels retain the exact value.
-- Movement starts around 5.1 cells/second. Increasing score increases speed up to
-  a playable ceiling around 18.2 cells/second, matching the earlier game's limit.
+- Classic, Survivor and Speed Run start around 5.1 moves/second. Apples add a small
+  speed increment and rats multiply speed by five. Speed Run caps at 100 moves/sec;
+  Classic, Survivor and Endless cap at 60. Endless starts at 5 moves/sec and keeps
+  its existing food acceleration. Blue bird shields still last ten active seconds
+  or one collision, whichever comes first.
 - Food never appears on the snake. Filling the board wins the game.
 
 ## Native app behavior
@@ -73,7 +76,7 @@ and no tracking or collected data.
 
 - **Passed:** 18 XCTest cases for the portable Swift game engine, executed with
   Swift 6.2.1 on Linux. Includes four-way wrapping, legal/illegal turns, turn
-  buffering, apple score and growth, rat 5× scoring, rat expiry, pause semantics,
+  buffering, apple score and growth, rat 5× scoring, rat persistence, pause semantics,
   self-collision, entering a vacating tail, spawning, board completion, and large
   scores beyond machine integer range.
 - **Passed:** Swift syntax parsing of the app/UI source.

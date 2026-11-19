@@ -17,11 +17,9 @@ public enum FoodKind: Sendable { case apple, rat, blueBird }
 public struct Food: Equatable, Sendable {
     public let cell: Cell
     public let kind: FoodKind
-    public var secondsRemaining: Double?
-    public init(cell: Cell, kind: FoodKind, secondsRemaining: Double? = nil) {
+    public init(cell: Cell, kind: FoodKind) {
         self.cell = cell
         self.kind = kind
-        self.secondsRemaining = secondsRemaining
     }
 }
 
@@ -36,6 +34,7 @@ public enum GameMode: String, CaseIterable, Sendable {
         }
     }
     public var isPlayable: Bool { true }
+    public var maximumMovesPerSecond: Double { self == .speedRun ? 100 : 60 }
     public var boardSize: Int {
         switch self { case .classic, .endless: return 20; case .survivor: return 28; case .speedRun: return 35 }
     }
@@ -48,12 +47,10 @@ public enum GameEvent: Sendable { case none, moved, apple, rat, blueBird, shield
 public struct GameRules: Sendable {
     public var ratChance: Double
     public var applesBeforeRats: Int
-    public var ratLifetime: Double
     public var speedRunRatChance: Double
-    public init(ratChance: Double = 0.18, applesBeforeRats: Int = 3, ratLifetime: Double = 8, speedRunRatChance: Double = 0.45) {
+    public init(ratChance: Double = 0.18, applesBeforeRats: Int = 3, speedRunRatChance: Double = 0.45) {
         self.ratChance = min(1, max(0, ratChance))
         self.applesBeforeRats = max(0, applesBeforeRats)
-        self.ratLifetime = max(0.1, ratLifetime)
         self.speedRunRatChance = min(1, max(0, speedRunRatChance))
     }
 }
@@ -61,7 +58,6 @@ public struct GameRules: Sendable {
 /// Pure Swift, deterministic with an injected RNG, and independently testable.
 public struct SnakeEngine {
     public static let initialMovesPerSecond = 1 / 0.195
-    public static let maximumMovesPerSecond = 60.0
     public static let appleSpeedIncrement = 0.048 / 0.195
     public static let speedRunPickupTarget = 12
     public private(set) var boardSize: Int
@@ -117,7 +113,7 @@ public struct SnakeEngine {
         self.phase = phase
         self.mode = mode
         self.obstacles = obstacles
-        self.movesPerSecond = min(Self.maximumMovesPerSecond, max(0.1, movesPerSecond))
+        self.movesPerSecond = min(mode.maximumMovesPerSecond, max(0.1, movesPerSecond))
         self.endlessFoods = endlessFoods
         self.scrollRows = scrollRows
         self.endlessSteering = min(1, max(-1, endlessSteering))
@@ -209,14 +205,6 @@ public struct SnakeEngine {
         if mode == .speedRun {
             shieldSecondsRemaining = max(0, shieldSecondsRemaining - safeElapsed)
         }
-        // Rat time is active gameplay time; pauses/backgrounding do not consume it.
-        if mode != .speedRun, let current = food, current.kind == .rat, let remaining = current.secondsRemaining {
-            if remaining <= safeElapsed {
-                food = Food(cell: current.cell, kind: .apple)
-            } else {
-                food?.secondsRemaining = remaining - safeElapsed
-            }
-        }
         if !queuedTurns.isEmpty { direction = queuedTurns.removeFirst() }
         let head = body[0]
         let next = Cell(x: (head.x + direction.dx + boardSize) % boardSize,
@@ -249,11 +237,11 @@ public struct SnakeEngine {
         case .rat:
             score.multiplyByFive()
             ratsEaten += 1
-            movesPerSecond = min(Self.maximumMovesPerSecond, movesPerSecond * 5)
+            movesPerSecond = min(mode.maximumMovesPerSecond, movesPerSecond * 5)
         case .apple:
             score.addOne()
             applesEaten += 1
-            movesPerSecond = min(Self.maximumMovesPerSecond, movesPerSecond + Self.appleSpeedIncrement)
+            movesPerSecond = min(mode.maximumMovesPerSecond, movesPerSecond + Self.appleSpeedIncrement)
         case .blueBird:
             if mode == .speedRun { shieldSecondsRemaining = 10 }
         }
@@ -349,8 +337,7 @@ public struct SnakeEngine {
         let cell = free[Int.random(in: 0..<free.count, using: &rng)]
         let isRat = allowRat && applesEaten >= rules.applesBeforeRats
             && Double.random(in: 0..<1, using: &rng) < ratChance
-        return Food(cell: cell, kind: isRat ? .rat : .apple,
-                    secondsRemaining: isRat ? rules.ratLifetime : nil)
+        return Food(cell: cell, kind: isRat ? .rat : .apple)
     }
 
     /// Persistent Speed Run field: no eligibility gate, expiry, or relocation of other pickups.
@@ -396,7 +383,7 @@ public struct SnakeEngine {
             endlessFoods.removeAll { $0.cell == next }
             score.addOne()
             if eaten.kind == .rat { ratsEaten += 1 } else { applesEaten += 1 }
-            movesPerSecond = min(Self.maximumMovesPerSecond, movesPerSecond + (eaten.kind == .rat ? 0.36 : 0.12))
+            movesPerSecond = min(mode.maximumMovesPerSecond, movesPerSecond + (eaten.kind == .rat ? 0.36 : 0.12))
         } else {
             body.removeLast()
         }

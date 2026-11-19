@@ -24,6 +24,21 @@ final class SpeedRunTests: XCTestCase {
         SnakeEngine(boardSize:6,body:collisionBody,food:nil,score:ArcadeScore("7"),
             mode:.speedRun,speedRunFoods:[Food(cell:Cell(x:5,y:5),kind:.rat)],shieldSecondsRemaining:shield)
     }
+    func testSpeedRunApplesAndRatsReach100WithoutExceedingIt() {
+        for kind in [FoodKind.apple, .rat] {
+            for rate in [20.0, 60.0, 99.9, 100.0] {
+                var game = SnakeEngine(body: body, food: nil, score: ArcadeScore("7"),
+                    applesEaten: 3, mode: .speedRun, movesPerSecond: rate,
+                    speedRunFoods: [Food(cell: Cell(x: 4,y: 3), kind: kind)])
+                var rng = SpeedRunRNG()
+                XCTAssertEqual(game.tick(elapsed: 100, using: &rng), kind == .rat ? .rat : .apple)
+                let expected = kind == .rat ? min(100, rate * 5) : min(100, rate + SnakeEngine.appleSpeedIncrement)
+                XCTAssertEqual(game.movesPerSecond, expected, accuracy: 0.000001)
+                XCTAssertEqual(game.level.digits, kind == .rat ? "4" : "5")
+            }
+        }
+    }
+
     func testStartsWithTwelveUniquePersistentPickupsAndImmediateRats() {
         for seed in 1...30 {
             var game=SnakeEngine(),rng=SpeedRunRNG(state:UInt64(seed))
@@ -34,7 +49,7 @@ final class SpeedRunTests: XCTestCase {
             XCTAssertEqual(game.speedRunFoods.filter{$0.kind == .rat}.count,5)
             XCTAssertEqual(game.speedRunFoods.filter{$0.kind == .blueBird}.count,1)
             XCTAssertEqual(Set(game.speedRunFoods.map(\.cell)).count,12)
-            XCTAssertTrue(game.speedRunFoods.allSatisfy{!game.body.contains($0.cell) && !game.obstacles.contains($0.cell) && $0.secondsRemaining == nil})
+            XCTAssertTrue(game.speedRunFoods.allSatisfy{!game.body.contains($0.cell) && !game.obstacles.contains($0.cell)})
             XCTAssertEqual(game.applesEaten,0)
         }
     }
@@ -54,7 +69,7 @@ final class SpeedRunTests: XCTestCase {
             for item in untouched { XCTAssertTrue(game.speedRunFoods.contains(item)) }
             XCTAssertFalse(game.speedRunFoods.contains{$0.cell == Cell(x:4,y:3)})
             XCTAssertEqual(Set(game.speedRunFoods.map(\.cell)).count,3)
-            XCTAssertTrue(game.speedRunFoods.allSatisfy{!game.body.contains($0.cell) && $0.secondsRemaining == nil})
+            XCTAssertTrue(game.speedRunFoods.allSatisfy{!game.body.contains($0.cell)})
         }
     }
     func testReplacementDistributionIncludesApplesRatsAndBirds() {
