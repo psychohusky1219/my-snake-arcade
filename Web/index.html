@@ -191,7 +191,7 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
     </div>
     <button class="action" id="restart">Restart ↻</button>
    </div>
-   <div class="footer" id="game-footer">🐀 Rat bonus lasts 8 seconds · Speed capped at 60 moves/sec</div>
+   <div class="footer" id="game-footer">🐀 Rats stay until eaten · Speed capped at 60 moves/sec</div>
   </div>
   <div class="toast" id="toast">🐀 RAT! Score ×5</div>
  </section>
@@ -204,10 +204,10 @@ const menu=get('menu'),game=get('game'),field=get('field'),stage=get('stage'),ca
 const MODE_SIZES={classic:24,survivor:34,speedRun:42,endless:24};
 const MODE_TITLES={classic:'Classic',survivor:'Survivor',speedRun:'Speed Run',endless:'Endless'};
 let COUNT=24,CELL=20; // The fixed 480 × 480 canvas fits every grid.
-const INITIAL_SPEED=1000/210,APPLE_SPEED_GAIN=INITIAL_SPEED*.055,MAX_SPEED=60;
+const INITIAL_SPEED=1000/210,APPLE_SPEED_GAIN=INITIAL_SPEED*.055,MAX_SPEED=60,SPEED_RUN_MAX_SPEED=100;
 let speed=INITIAL_SPEED;
 const direction={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
-let snake=[],food=null,heading=direction.right,turns=[],score=0n,level=1n,best=0n,apples=0,sinceRat=0,mode='menu',timeout=null,lastTime=0,ratRemaining=0,fullscreenRequested=false,toastTimer=null;
+let snake=[],food=null,heading=direction.right,turns=[],score=0n,level=1n,best=0n,apples=0,sinceRat=0,mode='menu',timeout=null,lastTime=0,fullscreenRequested=false,toastTimer=null;
 try{const saved=localStorage.getItem('my-private-snake-best-v1')||'0';if(/^\d+$/.test(saved))best=BigInt(saved)}catch(_){}
 get('best').textContent=best;
 let gameMode='classic',obstacles=[],obstacleSet=new Set(),collisionCause=null;
@@ -232,7 +232,7 @@ function selectGameMode(value){
  }
  get('mode-legend').innerHTML=value==='endless'?'<span>🍎🐀 +1 segment</span><span>■ −1 segment</span><span>↑ Keep moving</span>':value==='speedRun'?'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span style="color:#79e9ff">Blue bird · 1-hit shield</span>':'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span>↔ Through walls</span>';
  get('level-label').textContent=value==='endless'?'LENGTH':'LEVEL';
- get('game-footer').textContent=value==='endless'?'Food +1 · Block −1 · Rats accelerate faster · × to exit':value==='speedRun'?'12 pickups · Blue bird: 10 seconds or 1 hit · Speed capped at 60':'🐀 Rat lasts 8 seconds · Speed capped at 60 moves/sec · × to exit';
+ get('game-footer').textContent=value==='endless'?'Food +1 · Block −1 · Rats accelerate faster · × to exit':value==='speedRun'?'12 pickups · Blue bird: 10 seconds or 1 hit · Speed capped at 100':'🐀 Rats stay until eaten · Speed capped at 60 moves/sec · × to exit';
  const title=MODE_TITLES[value].toUpperCase();
  get('play').textContent='PLAY '+title+' ⛶';
  get('run-mode').textContent=title;
@@ -310,6 +310,7 @@ function refreshObstacles(random=Math.random){
   obstacles.push(...cells);obstacleSet=proposed;groups++;
  }
 }
+function maximumSpeed(){return gameMode==='speedRun'?SPEED_RUN_MAX_SPEED:MAX_SPEED}
 function millis(){return 1000/speed}
 function update(){
  get('score').textContent=score;get('level').textContent=gameMode==='endless'?snake.length:level;get('best').textContent=best;
@@ -319,7 +320,7 @@ function update(){
  get('wrap-status').classList.toggle('shield',shielded);
  field.classList.toggle('shield-active',shielded);
  if(shielded)get('wrap-status').textContent='◈ '+(shieldRemaining/1000).toFixed(1)+'s · 1 hit';
- if(food&&food.type==='rat')get('hint').textContent='🐀 '+Math.ceil(ratRemaining/1000)+'s left · Score & speed ×5';
+ if(food&&food.type==='rat')get('hint').textContent='🐀 Score & speed ×5 · No time limit';
  else if(gameMode==='speedRun'&&shieldRecovery)get('hint').textContent='Choose a direction, then Resume';
  else get('hint').textContent='⚡ '+(1000/millis()).toFixed(1)+' moves/sec · '+(controlMode==='touch'?'Swipe on touch pad':'Use arrow pad');
 }
@@ -355,7 +356,6 @@ function render(){
     ctx.shadowColor='#ffd58a';
     ctx.font='19px "Apple Color Emoji","Segoe UI Emoji",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('🐀',x,y+1);ctx.shadowBlur=0;
-    if(gameMode!=='endless'&&gameMode!=='speedRun'){ctx.strokeStyle='#ffd98b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,9,-Math.PI/2,-Math.PI/2+Math.PI*2*(ratRemaining/8000));ctx.stroke();}
   }else if(item.type==='blueBird'){
     // Draw an unmistakably blue bird independently of platform emoji colors.
     ctx.shadowColor='#5edbff';ctx.fillStyle='#57caff';ctx.beginPath();ctx.ellipse(x-1,y+1,6.5,4.8,0,0,Math.PI*2);ctx.fill();
@@ -393,7 +393,7 @@ function reset(){
  obstacles=[];obstacleSet.clear();collisionCause=null;
  scrollRows=0;endlessSteer=0;endlessFoods=[];
  speedFoods=[];shieldRemaining=0;shieldRecovery=false;
- score=0n;level=1n;speed=gameMode==='endless'?5:INITIAL_SPEED;apples=0;sinceRat=0;ratRemaining=0;
+ score=0n;level=1n;speed=gameMode==='endless'?5:INITIAL_SPEED;apples=0;sinceRat=0;
  if(gameMode==='endless'){food=null;endlessFoods=[{x:mid,y:headY-4,type:'apple'}]}
  else if(gameMode==='speedRun'){food=null;fillSpeedFoods(true)}else food=place('apple');
  lastTime=performance.now();update();render();
@@ -413,8 +413,8 @@ function over(win){
 }
 function nextFood(){
  const isRat=apples>=3&&Math.random()<.18;
- if(isRat){sinceRat=0;ratRemaining=8000;food=place('rat');announce('🐀 RAT! SCORE & SPEED ×5');}
- else{food=place('apple');ratRemaining=0;}
+ if(isRat){sinceRat=0;food=place('rat');announce('🐀 RAT! SCORE & SPEED ×5');}
+ else{food=place('apple');}
  if(!food){over(true);return false}
  return true;
 }
@@ -465,12 +465,8 @@ function tickEndless(){
 function tick(){
  if(mode!=='running')return;
  if(gameMode==='endless'){tickEndless();return}
- const now=performance.now(),elapsed=now-lastTime,safeElapsed=Number.isFinite(elapsed)?Math.max(0,elapsed):0,dt=Math.min(safeElapsed,1200);lastTime=now;
+ const now=performance.now(),elapsed=now-lastTime,safeElapsed=Number.isFinite(elapsed)?Math.max(0,elapsed):0;lastTime=now;
  if(gameMode==='speedRun')shieldRemaining=Math.max(0,shieldRemaining-safeElapsed);
- if(gameMode!=='speedRun'&&food&&food.type==='rat'){
-  ratRemaining-=dt;
-  if(ratRemaining<=0){ratRemaining=0;food={...food,type:'apple'};}
- }
  if(turns.length)heading=turns.shift();
  const head={x:(snake[0].x+heading.x+COUNT)%COUNT,y:(snake[0].y+heading.y+COUNT)%COUNT};
  const eaten=gameMode==='speedRun'?speedFoods.find(p=>p.x===head.x&&p.y===head.y):(food&&head.x===food.x&&head.y===food.y?food:null);
@@ -487,8 +483,8 @@ function tick(){
   if(eaten.type==='blueBird'){
    shieldRemaining=10000;announce('BLUE BIRD · 10-SECOND / 1-HIT SHIELD');
   }else if(eaten.type==='rat'){
-   score*=5n;speed=Math.min(MAX_SPEED,speed*5);announce('🐀 RAT! SCORE & SPEED ×5 · LEVEL UNCHANGED');ratRemaining=0;
-  }else{score+=1n;apples+=1;sinceRat+=1;level=BigInt(apples)+1n;speed=Math.min(MAX_SPEED,speed+APPLE_SPEED_GAIN);}
+   score*=5n;speed=Math.min(maximumSpeed(),speed*5);announce('🐀 RAT! SCORE & SPEED ×5 · LEVEL UNCHANGED');
+  }else{score+=1n;apples+=1;sinceRat+=1;level=BigInt(apples)+1n;speed=Math.min(maximumSpeed(),speed+APPLE_SPEED_GAIN);}
   saveBest();
   const hadObstacles=obstacles.length>0;
   if(gameMode==='speedRun'){

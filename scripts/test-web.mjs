@@ -61,7 +61,7 @@ const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9,
 for (const gameMode of ['classic', 'survivor', 'speedRun']) {
   test(`${gameMode}: rat multiplies current score and speed, preserves level/layout`, () => {
     const game = session();
-    game.run(`selectGameMode('${gameMode}'); start(); snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}]; heading=direction.right; food={x:3,y:2,type:'rat'}; ratRemaining=8000; score=7n; apples=9; level=10n; speed=4; obstacles=[{x:20,y:20}]; obstacleSet=new Set([20*COUNT+20]);`);
+    game.run(`selectGameMode('${gameMode}'); start(); snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}]; heading=direction.right; food={x:3,y:2,type:'rat'}; score=7n; apples=9; level=10n; speed=4; obstacles=[{x:20,y:20}]; obstacleSet=new Set([20*COUNT+20]);`);
     if(gameMode==='speedRun')game.run('speedFoods=[food];food=null');
     game.tick();
     assert.equal(game.run('score'), 35n);
@@ -84,7 +84,7 @@ for (const gameMode of ['classic', 'survivor', 'speedRun']) {
 
 test('rat speed cap and zero score are independent', () => {
   const game = session();
-  game.run(`start(); snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}]; food={x:3,y:2,type:'rat'}; ratRemaining=8000; score=0n; speed=12;`);
+  game.run(`start(); snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}]; food={x:3,y:2,type:'rat'}; score=0n; speed=12;`);
   game.tick();
   assert.equal(game.run('score'), 0n);
   assert.equal(game.run('level'), 1n);
@@ -112,13 +112,13 @@ test('Classic records and touch controller survive startup', () => {
   assert.equal(game.run('best'), 999999999999999999n);
 });
 
-test('pause freezes movement and rat lifetime', () => {
+test('pause freezes movement and preserves rats', () => {
   const game = session();
-  game.run("start(); food={x:10,y:10,type:'rat'}; ratRemaining=7000; pause()");
+  game.run("start(); food={x:10,y:10,type:'rat'}; pause()");
   const before = game.run('JSON.stringify(snake)');
   game.tick();
   assert.equal(game.run('JSON.stringify(snake)'), before);
-  assert.equal(game.run('ratRemaining'), 7000);
+  assert.equal(game.run('food.type'), 'rat');
   assert.equal(game.run('mode'), 'paused');
 });
 
@@ -208,11 +208,45 @@ test('Classic rat eligibility stays at three apples and Speed Run replacements i
   assert.equal(game.run("speedFoods.every(p=>p.type==='blueBird')"), true);
 });
 
-test('rat expiry becomes an apple in the same safe cell', () => {
-  const game = session();
-  game.run("start();food={x:0,y:0,type:'rat'};ratRemaining=1");
-  game.tick();
-  assert.equal(game.run("JSON.stringify(food)"), '{"x":0,"y":0,"type":"apple"}');
+for(const gameMode of ['classic','survivor']) {
+  test(`${gameMode}: rats persist through long play and pause until eaten`, () => {
+    const game=session();
+    game.run(`selectGameMode('${gameMode}');start();food={x:0,y:0,type:'rat'}`);
+    for(let i=0;i<30;i++)game.tick(1000);
+    assert.equal(game.run('mode'),'running');
+    assert.equal(game.run('JSON.stringify(food)'),'{"x":0,"y":0,"type":"rat"}');
+    game.run('pause()');game.tick(30000);game.run('pause()');game.tick(1000);
+    assert.equal(game.run('food.type'),'rat');
+    assert.ok(!game.element('hint').textContent.includes('s left'));
+    game.run("snake=[{x:1,y:0},{x:2,y:0},{x:3,y:0}];heading=direction.left;score=3n;speed=9;level=4n");
+    game.tick();
+    assert.equal(game.run('score'),15n);
+    assert.equal(game.run('level'),4n);
+    assert.equal(game.run('speed'),45);
+    game.run('start()');assert.equal(game.run('food.type'),'apple');
+  });
+}
+
+for(const gameMode of ['classic','survivor','speedRun']) {
+  for(const [kind,rate] of [['rat',15],['rat',99],['apple',59.99],['apple',99.99]]) {
+    test(`${gameMode}: ${kind} at ${rate} uses mode cap and tick interval`,()=>{
+      const game=session(),cap=gameMode==='speedRun'?100:60;
+      game.run(`selectGameMode('${gameMode}');start();snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}];heading=direction.right;food={x:3,y:2,type:'${kind}'};speed=${rate};score=3n;level=4n;apples=3`);
+      if(gameMode==='speedRun')game.run('speedFoods=[food];food=null');
+      game.tick();
+      const expected=Math.min(cap,kind==='rat'?rate*5:rate+1000/210*.055);
+      near(game.run('speed'),expected);
+      near(game.run('millis()'),1000/expected);
+      near(game.timers.get(game.run('timeout')).delay,1000/expected);
+      assert.ok(game.element('game-footer').textContent.includes(`Speed capped at ${cap}`));
+      if(kind==='rat')assert.equal(game.run('level'),4n);
+    });
+  }
+}
+
+test('web rat timers and expiry ring are absent; shield timer remains',()=>{
+  assert.ok(!/ratRemaining|Rat lasts 8|Rat bonus lasts 8/.test(html));
+  assert.ok(html.includes('shieldRemaining'));
 });
 
 test('new-mode scores are separate and existing records remain untouched', () => {
@@ -520,7 +554,7 @@ test('restart and mode changes cannot transfer shields or recovery state', () =>
   handlers.get('activate')({waitUntil:value=>{pending=value}});await pending;
   assert.equal(cacheData.has('my-snake-four-modes-v5'),false);
   assert.equal(cacheData.has('unrelated-cache'),true);
-  assert.ok(cacheData.get('my-snake-speed-60-v7').has('./index.html'));
+  assert.ok(cacheData.get('my-snake-speedrun-100-persistent-rats-v8').has('./index.html'));
   handlers.get('fetch')({request:{method:'GET',url:'https://snake.test/?source=homescreen',mode:'navigate'},respondWith:value=>{pending=value}});
   assert.equal((await pending).cached,'./index.html');
   passed++;console.log('PASS service worker upgrades its own cache and serves the game offline');
