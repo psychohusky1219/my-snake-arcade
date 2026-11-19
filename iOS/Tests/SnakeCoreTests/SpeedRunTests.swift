@@ -24,15 +24,29 @@ final class SpeedRunTests: XCTestCase {
         SnakeEngine(boardSize:6,body:collisionBody,food:nil,score:ArcadeScore("7"),
             mode:.speedRun,speedRunFoods:[Food(cell:Cell(x:5,y:5),kind:.rat)],shieldSecondsRemaining:shield)
     }
-    func testSpeedRunApplesAndRatsReach100WithoutExceedingIt() {
+    func testShieldConsumesOneWallHitWithoutWrapping() {
+        let edge = Cell(x: 19,y: 3)
+        var game = SnakeEngine(body: [edge], food: nil, mode: .speedRun,
+                               shieldSecondsRemaining: 10, wallWrap: false)
+        var rng = SpeedRunRNG()
+        XCTAssertEqual(game.tick(elapsed: 0.01, using: &rng), .shielded)
+        XCTAssertEqual(game.body.first, edge)
+        XCTAssertEqual(game.shieldSecondsRemaining, 0)
+        XCTAssertTrue(game.turn(.up))
+        game.resume()
+        XCTAssertEqual(game.tick(elapsed: 0.01, using: &rng), .moved)
+        XCTAssertEqual(game.body.first, Cell(x: 19,y: 2))
+    }
+
+    func testSpeedRunApplesAndRatsReach240WithoutExceedingIt() {
         for kind in [FoodKind.apple, .rat] {
-            for rate in [20.0, 60.0, 99.9, 100.0] {
+            for rate in [20.0, 60.0, 239.9, 240.0] {
                 var game = SnakeEngine(body: body, food: nil, score: ArcadeScore("7"),
                     applesEaten: 3, mode: .speedRun, movesPerSecond: rate,
                     speedRunFoods: [Food(cell: Cell(x: 4,y: 3), kind: kind)])
                 var rng = SpeedRunRNG()
                 XCTAssertEqual(game.tick(elapsed: 100, using: &rng), kind == .rat ? .rat : .apple)
-                let expected = kind == .rat ? min(100, rate * 5) : min(100, rate + SnakeEngine.appleSpeedIncrement)
+                let expected = kind == .rat ? min(240, rate * 5) : min(240, rate + SnakeEngine.appleSpeedIncrement)
                 XCTAssertEqual(game.movesPerSecond, expected, accuracy: 0.000001)
                 XCTAssertEqual(game.level.digits, kind == .rat ? "4" : "5")
             }

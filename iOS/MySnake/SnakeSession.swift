@@ -8,6 +8,9 @@ final class SnakeSession: ObservableObject {
     @Published private(set) var best: ArcadeScore
     @Published private(set) var isGameVisible = false
     @Published private(set) var lastReward = ""
+    @Published var wallWrapEnabled: Bool {
+        didSet { defaults.set(wallWrapEnabled, forKey: "nativeSnake.wallWrap") }
+    }
     @Published var hapticsEnabled: Bool {
         didSet { defaults.set(hapticsEnabled, forKey: "nativeSnake.haptics") }
     }
@@ -27,11 +30,15 @@ final class SnakeSession: ObservableObject {
         let key = "nativeSnake.best." + initialMode.rawValue
         let legacy = initialMode == .classic ? defaults.string(forKey: "nativeSnake.best") : nil
         best = ArcadeScore(defaults.string(forKey: key) ?? legacy ?? "0")
+        wallWrapEnabled = defaults.object(forKey: "nativeSnake.wallWrap") == nil || defaults.bool(forKey: "nativeSnake.wallWrap")
         hapticsEnabled = defaults.object(forKey: "nativeSnake.haptics") == nil
             ? true : defaults.bool(forKey: "nativeSnake.haptics")
     }
 
-    var hasPausedGame: Bool { engine.phase == .paused && engine.mode == selectedMode }
+    var hasPausedGame: Bool {
+        engine.phase == .paused && engine.mode == selectedMode
+            && (selectedMode == .endless || engine.wallWrap == wallWrapEnabled)
+    }
 
     func selectMode(_ mode: GameMode) {
         guard !isGameVisible, mode.isPlayable else { return }
@@ -54,7 +61,7 @@ final class SnakeSession: ObservableObject {
     func newGame() {
         stopLoop()
         guard selectedMode.isPlayable else { return }
-        engine.start(mode: selectedMode, using: &random)
+        engine.start(mode: selectedMode, wallWrap: wallWrapEnabled, using: &random)
         isGameVisible = true
         lastReward = ""
         rewardTicks = 0

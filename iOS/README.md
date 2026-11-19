@@ -1,6 +1,6 @@
 # My Snake — Native iPhone Edition
 
-Version 4.2 · Swift/SwiftUI · Personal use
+Version 4.3 · Swift/SwiftUI · Personal use
 
 **This is a native app source project, not a ready-to-install IPA.** The earlier
 project used a WKWebView to run bundled HTML. This version replaces that layer
@@ -43,8 +43,8 @@ Apple account. This source ZIP alone does not perform those steps.
   device's fixed-size integer range. Very large values are abbreviated on screen;
   accessibility labels retain the exact value.
 - Classic, Survivor and Speed Run start around 5.1 moves/second. Apples add a small
-  speed increment and rats multiply speed by five. Speed Run caps at 100 moves/sec;
-  Classic, Survivor and Endless cap at 60. Endless starts at 5 moves/sec and keeps
+  speed increment and rats multiply speed by five. Speed Run caps at 240 moves/sec;
+  Classic caps at 60, Survivor at 120 and Endless at 300. Endless starts at 5 moves/sec and keeps
   its existing food acceleration. Blue bird shields still last ten active seconds
   or one collision, whichever comes first.
 - Food never appears on the snake. Filling the board wins the game.

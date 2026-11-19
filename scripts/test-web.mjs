@@ -48,7 +48,8 @@ function session(saved = {}) {
   vm.runInContext(fixtureScript, context, { filename: 'Web/index.html' });
   const run = source => context.fixture(source);
   const tick = (elapsed = run('millis()')) => { now += elapsed; run('tick()'); };
-  return { run, tick, element, storage, timers };
+  const fireTimer = elapsed => { const id=run('timeout'), timer=timers.get(id); assert.ok(timer); timers.delete(id); now+=elapsed??timer.delay; timer.fn(); };
+  return { run, tick, element, storage, timers, fireTimer };
 }
 
 let passed = 0;
@@ -228,21 +229,66 @@ for(const gameMode of ['classic','survivor']) {
 }
 
 for(const gameMode of ['classic','survivor','speedRun']) {
-  for(const [kind,rate] of [['rat',15],['rat',99],['apple',59.99],['apple',99.99]]) {
+  for(const [kind,rate] of [['rat',15],['rat',99],['apple',59.99],['apple',119.99],['apple',239.99]]) {
     test(`${gameMode}: ${kind} at ${rate} uses mode cap and tick interval`,()=>{
-      const game=session(),cap=gameMode==='speedRun'?100:60;
+      const game=session(),cap={classic:60,survivor:120,speedRun:240}[gameMode];
       game.run(`selectGameMode('${gameMode}');start();snake=[{x:2,y:2},{x:1,y:2},{x:0,y:2}];heading=direction.right;food={x:3,y:2,type:'${kind}'};speed=${rate};score=3n;level=4n;apples=3`);
       if(gameMode==='speedRun')game.run('speedFoods=[food];food=null');
       game.tick();
       const expected=Math.min(cap,kind==='rat'?rate*5:rate+1000/210*.055);
       near(game.run('speed'),expected);
       near(game.run('millis()'),1000/expected);
-      near(game.timers.get(game.run('timeout')).delay,1000/expected);
+      near(game.timers.get(game.run('timeout')).delay,expected>200?Math.ceil(1000/expected):1000/expected);
       assert.ok(game.element('game-footer').textContent.includes(`Speed capped at ${cap}`));
       if(kind==='rat')assert.equal(game.run('level'),4n);
     });
   }
 }
+
+test('wall wrap starts on, persists, and is disabled for Endless',()=>{
+  const game=session();
+  assert.equal(game.element('wall-wrap')['aria-pressed'],'true');
+  game.element('wall-wrap').fire('click');
+  assert.equal(game.storage.get('my-snake-wall-wrap-v1'),'off');
+  assert.equal(game.element('wall-wrap')['aria-pressed'],'false');
+  game.run("selectGameMode('endless')");
+  assert.equal(game.element('wall-wrap').disabled,true);
+  game.element('wall-wrap').fire('click');
+  assert.equal(game.storage.get('my-snake-wall-wrap-v1'),'off');
+  assert.equal(session({'my-snake-wall-wrap-v1':'off'}).element('wall-wrap')['aria-pressed'],'false');
+});
+
+test('wall toggle controls collision on all four edges in each board mode',()=>{
+  for(const mode of ['classic','survivor','speedRun'])for(const wrap of [true,false]){
+    const game=session({'my-snake-wall-wrap-v1':wrap?'on':'off'});
+    for(const dir of ['left','right','up','down']){
+      game.run(`mode='menu';selectGameMode('${mode}');start();heading=direction.${dir};food=null;speedFoods=[];snake=[{x:${dir==='left'?0:dir==='right'?'COUNT-1':3},y:${dir==='up'?0:dir==='down'?'COUNT-1':3}}]`);
+      game.tick();
+      assert.equal(game.run('mode'),wrap?'running':'over');
+      if(!wrap){assert.equal(game.run('collisionCause'),'wall');assert.equal(game.element('overlay-title').textContent,'Wall hit!');}
+    }
+  }
+});
+
+test('a Speed Run shield absorbs a wall hit without wrapping',()=>{
+  const game=session({'my-snake-wall-wrap-v1':'off'});
+  game.run("selectGameMode('speedRun'); start(); heading=direction.right; snake=[{x:COUNT-1,y:3}]; shieldRemaining=10000; speedFoods=[]");
+  game.tick();
+  assert.equal(game.run('mode'),'paused');
+  assert.equal(game.run('shieldRemaining'),0);
+  assert.equal(game.run('snake[0].x'),41);
+  game.run("turn('up');pause()");game.tick();
+  assert.equal(game.run('snake[0].y'),2);
+  assert.equal(game.run('mode'),'running');
+});
+
+test('bounded Survivor layouts do not connect across walls',()=>{
+  const game=session();
+  game.run("selectGameMode('survivor');start();obstacleSet=new Set(Array.from({length:COUNT},(_,y)=>y*COUNT+10));");
+  assert.equal(game.run("openCellsConnected(obstacleSet,{x:3,y:3})"),true);
+  game.run('wallWrap=false');
+  assert.equal(game.run("openCellsConnected(obstacleSet,{x:3,y:3})"),false);
+});
 
 test('web rat timers and expiry ring are absent; shield timer remains',()=>{
   assert.ok(!/ratRemaining|Rat lasts 8|Rat bonus lasts 8/.test(html));
@@ -363,11 +409,21 @@ test('Endless cleans offscreen scenery, freezes while paused and fully resets', 
   assert.equal(game.run('speed'), 5);
 });
 
-test('Endless gradual acceleration stops at the shared responsiveness cap', () => {
+test('Endless gradual acceleration stops at its 300 moves/sec cap', () => {
   const game = session();
-  game.run("selectGameMode('endless');start();speed=59.9;endlessFoods=[{x:snake[0].x,y:snake[0].y-1,type:'rat'}]");
+  game.run("selectGameMode('endless');start();speed=299.9;endlessFoods=[{x:snake[0].x,y:snake[0].y-1,type:'rat'}]");
   game.tick();
-  assert.equal(game.run('speed'), 60);
+  assert.equal(game.run('speed'), 300);
+});
+
+test('Endless maintains 300 logical moves/sec with 4-ms timers', () => {
+  const game=session();
+  game.run("selectGameMode('endless');start();speed=300;endlessFoods=[];spawnEndless=()=>{};schedule()");
+  for(let i=0;i<25;i++)game.fireTimer(4);
+  assert.equal(game.run('scrollRows'),30);
+  game.run('pause()');assert.equal(game.run('fastDue'),null);
+  game.run('pause()');game.fireTimer(4);assert.equal(game.run('scrollRows'),31);
+  game.fireTimer(1000);assert.equal(game.run('scrollRows'),37);
 });
 
 test('Speed Run starts with twelve unique persistent pickups including immediate rats and one blue bird', () => {
@@ -554,7 +610,7 @@ test('restart and mode changes cannot transfer shields or recovery state', () =>
   handlers.get('activate')({waitUntil:value=>{pending=value}});await pending;
   assert.equal(cacheData.has('my-snake-four-modes-v5'),false);
   assert.equal(cacheData.has('unrelated-cache'),true);
-  assert.ok(cacheData.get('my-snake-speedrun-100-persistent-rats-v8').has('./index.html'));
+  assert.ok(cacheData.get('my-snake-mode-speed-caps-v9').has('./index.html'));
   handlers.get('fetch')({request:{method:'GET',url:'https://snake.test/?source=homescreen',mode:'navigate'},respondWith:value=>{pending=value}});
   assert.equal((await pending).cached,'./index.html');
   passed++;console.log('PASS service worker upgrades its own cache and serves the game offline');

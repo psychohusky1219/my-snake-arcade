@@ -123,6 +123,15 @@ private struct SnakeMenuView: View {
                     .foregroundStyle(ArcadeTheme.secondary)
                     .multilineTextAlignment(.center)
             }
+            if session.selectedMode == .endless {
+                Text("Wall Wrap is not available in Endless")
+                    .font(.system(size: 11))
+                    .foregroundStyle(ArcadeTheme.secondary)
+            } else {
+                Toggle("Wall Wrap", isOn: $session.wallWrapEnabled)
+                    .font(.system(size: 13, weight: .semibold))
+                    .tint(ArcadeTheme.lime)
+            }
             Button(action: session.play) {
                 Label(session.hasPausedGame ? "Continue game" : "Play \(session.selectedMode.title)", systemImage: "play.fill")
                     .font(.system(size: 17, weight: .heavy, design: .rounded))
@@ -177,7 +186,7 @@ private struct SnakeMenuView: View {
     private var gameModeDescription: String {
         switch session.selectedMode {
         case .classic:
-            return "20×20 · Wall wrap, no obstacles. Apples advance your level; rats multiply score and speed."
+            return "20×20 · No obstacles. Apples advance your level; rats multiply score and speed."
         case .survivor:
             return "28×28 · Levels 1–9 are clear. Obstacle chance: 5% at level 10, then +5 percentage points per level; 100% at 29+. Blocks end the run."
         case .speedRun:
@@ -444,6 +453,7 @@ private struct SnakePlayView: View {
         if session.engine.phase == .paused { return "PAUSED" }
         if session.engine.phase == .won { return "BOARD CLEARED!" }
         if session.engine.mode == .endless { return "NO SEGMENTS LEFT" }
+        if session.engine.collisionCause == .wall { return "WALL HIT!" }
         return session.engine.collisionCause == .obstacle ? "OBSTACLE HIT!" : "GAME OVER"
     }
 

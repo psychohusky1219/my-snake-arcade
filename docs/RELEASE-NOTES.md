@@ -1,3 +1,9 @@
+# My Snake 4.3 — Faster modes and Wall Wrap
+
+- In both editions: Classic caps at 60, Survivor at 120, Speed Run at 240 and Endless at 300 moves per second. Existing starting speeds, pickups and shields are unchanged.
+- Wall Wrap is an optional start-screen setting for Classic, Survivor and Speed Run, defaulting to On. With it Off, a wall hit ends the run unless a Speed Run shield absorbs it. Endless keeps its scrolling edges.
+- The app retains its established bundle ID. This is an unsigned iPhone IPA; update through the usual Sideloadly flow.
+
 # My Snake 4.2 — Faster Speed Run and no rat countdowns
 
 - Native Speed Run now caps at 100 moves per second. Classic, Survivor and Endless remain capped at 60. Opening speeds and acceleration rules are unchanged.

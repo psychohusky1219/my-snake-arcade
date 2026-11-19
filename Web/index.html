@@ -24,6 +24,7 @@ button:active{transform:scale(.96)}button:focus-visible{outline:3px solid #e5ffa
 #app{background:radial-gradient(ellipse 75% 53% at 50% 16%,#203d3d 0%,transparent 75%),linear-gradient(145deg,#0a1821,#0d1c26 52%,#08131d)}
 #menu{display:flex;align-items:center;justify-content:center;padding:20px;padding-top:calc(env(safe-area-inset-top) + 20px);padding-bottom:calc(env(safe-area-inset-bottom) + 20px);z-index:4}
 #menu.hidden{display:none}
+#menu{overflow-y:auto;align-items:flex-start}.menu-card{margin:auto}.wall-toggle{background:#27414a;border:1px solid #466259;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:800;margin:0 0 8px}.wall-toggle:disabled{opacity:.65;cursor:default}
 .menu-card{width:100%;max-width:420px;padding:27px 22px 24px;text-align:center;border:1px solid #466259;border-radius:27px;background:linear-gradient(145deg,#172d35ed,#0c1d26f2);box-shadow:0 16px 65px #0009}
 .logo{font-size:66px;filter:drop-shadow(0 5px 12px #8dfe7240);margin:0 0 6px}
 .kicker{font-size:10px;letter-spacing:3.2px;font-weight:900;color:#b9f57b;margin-top:4px}
@@ -154,6 +155,7 @@ h1 span{color:var(--mint)}.sub{color:#bad0d0;line-height:1.5;font-size:14px;marg
     </div>
     <p id="control-note">Steer with the large directional buttons.</p>
    </fieldset>
+   <button type="button" id="wall-wrap" class="wall-toggle" aria-label="Wall Wrap" aria-pressed="true">Wall Wrap: On</button>
    <button class="play" id="play">TAP TO PLAY ⛶</button>
    <div class="legend" id="mode-legend"><span>🍎 +1 point</span><span>🐀 Score & speed ×5</span><span>↔ Through walls</span></div>
    <div class="private">Free to play · No ads · Scores stay on your device</div>
@@ -204,21 +206,35 @@ const menu=get('menu'),game=get('game'),field=get('field'),stage=get('stage'),ca
 const MODE_SIZES={classic:24,survivor:34,speedRun:42,endless:24};
 const MODE_TITLES={classic:'Classic',survivor:'Survivor',speedRun:'Speed Run',endless:'Endless'};
 let COUNT=24,CELL=20; // The fixed 480 × 480 canvas fits every grid.
-const INITIAL_SPEED=1000/210,APPLE_SPEED_GAIN=INITIAL_SPEED*.055,MAX_SPEED=60,SPEED_RUN_MAX_SPEED=100;
+const INITIAL_SPEED=1000/210,APPLE_SPEED_GAIN=INITIAL_SPEED*.055,MAX_SPEED=60,SURVIVOR_MAX_SPEED=120,SPEED_RUN_MAX_SPEED=240,ENDLESS_MAX_SPEED=300;
 let speed=INITIAL_SPEED;
 const direction={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
 let snake=[],food=null,heading=direction.right,turns=[],score=0n,level=1n,best=0n,apples=0,sinceRat=0,mode='menu',timeout=null,lastTime=0,fullscreenRequested=false,toastTimer=null;
 try{const saved=localStorage.getItem('my-private-snake-best-v1')||'0';if(/^\d+$/.test(saved))best=BigInt(saved)}catch(_){}
 get('best').textContent=best;
+let wallWrap=true;
+try{wallWrap=localStorage.getItem('my-snake-wall-wrap-v1')!=='off'}catch(_){}
 let gameMode='classic',obstacles=[],obstacleSet=new Set(),collisionCause=null;
 let endlessFoods=[],scrollRows=0,endlessSteer=0;
 let speedFoods=[],shieldRemaining=0,shieldRecovery=false;
 try{const saved=localStorage.getItem('my-snake-game-mode-v1');if(Object.hasOwn(MODE_SIZES,saved))gameMode=saved}catch(_){}
 function bestKey(){return gameMode==='classic'?'my-private-snake-best-v1':'my-snake-'+gameMode+'-best-v1'}
+function syncWallWrap(){
+ const button=get('wall-wrap'),endless=gameMode==='endless';
+ button.disabled=endless;
+ button.textContent=endless?'Wall Wrap: Not available in Endless':'Wall Wrap: '+(wallWrap?'On':'Off');
+ button.setAttribute('aria-pressed',String(!endless&&wallWrap));
+}
+get('wall-wrap').addEventListener('click',()=>{
+ if(mode!=='menu'||gameMode==='endless')return;
+ wallWrap=!wallWrap;
+ try{localStorage.setItem('my-snake-wall-wrap-v1',wallWrap?'on':'off')}catch(_){}
+ selectGameMode(gameMode);
+});
 function selectGameMode(value){
  if(mode!=='menu'||!Object.hasOwn(MODE_SIZES,value))return;
  if(value!==gameMode){shieldRemaining=0;shieldRecovery=false;speedFoods=[]}
- gameMode=value;
+ gameMode=value;syncWallWrap();
  try{localStorage.setItem('my-snake-game-mode-v1',value);const saved=localStorage.getItem(bestKey())||'0';best=/^\d+$/.test(saved)?BigInt(saved):0n}catch(_){best=0n}
  get('mode-classic').setAttribute('aria-pressed',String(value==='classic'));
  get('mode-survivor').setAttribute('aria-pressed',String(value==='survivor'));
@@ -230,9 +246,9 @@ function selectGameMode(value){
   const d=button.dataset.dir;
   button.setAttribute('aria-label',value==='endless'?(d==='left'?'Steer diagonally up-left':d==='right'?'Steer diagonally up-right':'Go straight ahead'):d[0].toUpperCase()+d.slice(1));
  }
- get('mode-legend').innerHTML=value==='endless'?'<span>🍎🐀 +1 segment</span><span>■ −1 segment</span><span>↑ Keep moving</span>':value==='speedRun'?'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span style="color:#79e9ff">Blue bird · 1-hit shield</span>':'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span>↔ Through walls</span>';
+ get('mode-legend').innerHTML=value==='endless'?'<span>🍎🐀 +1 segment</span><span>■ −1 segment</span><span>↑ Keep moving</span>':value==='speedRun'?'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span style="color:#79e9ff">Blue bird · 1-hit shield</span>':'<span>🍎 +1 point & level</span><span>🐀 Score & speed ×5</span><span>'+(wallWrap?'↔ Through walls':'■ Walls end the run')+'</span>';
  get('level-label').textContent=value==='endless'?'LENGTH':'LEVEL';
- get('game-footer').textContent=value==='endless'?'Food +1 · Block −1 · Rats accelerate faster · × to exit':value==='speedRun'?'12 pickups · Blue bird: 10 seconds or 1 hit · Speed capped at 100':'🐀 Rats stay until eaten · Speed capped at 60 moves/sec · × to exit';
+ get('game-footer').textContent=(value==='endless'?'Food +1 · Block −1':value==='speedRun'?'Blue bird: 10 seconds or 1 hit':'🐀 Rats stay until eaten')+' · Speed capped at '+maximumSpeed()+' moves/sec';
  const title=MODE_TITLES[value].toUpperCase();
  get('play').textContent='PLAY '+title+' ⛶';
  get('run-mode').textContent=title;
@@ -278,11 +294,15 @@ function fillSpeedFoods(initial=false,random=Math.random){
   speedFoods.push({...cell,type});
  }
 }
+function stepCell(x,y){
+ if(wallWrap)return {x:(x+COUNT*2)%COUNT,y:(y+COUNT*2)%COUNT};
+ return x>=0&&x<COUNT&&y>=0&&y<COUNT?{x,y}:null;
+}
 function openCellsConnected(blocked,start){
  const key=p=>p.y*COUNT+p.x,seen=new Set([key(start)]),pending=[start];
  for(let i=0;i<pending.length;i++){
   const p=pending[i];for(const d of Object.values(direction)){
-   const n={x:(p.x+d.x+COUNT)%COUNT,y:(p.y+d.y+COUNT)%COUNT},k=key(n);
+   const n=stepCell(p.x+d.x,p.y+d.y);if(!n)continue;const k=key(n);
    if(!blocked.has(k)&&!seen.has(k)){seen.add(k);pending.push(n)}
   }
  }
@@ -295,26 +315,26 @@ function refreshObstacles(random=Math.random){
  const key=p=>p.y*COUNT+p.x,head=snake[0],protectedCells=new Set(snake.map(key));
  if(food)protectedCells.add(key(food));
  for(let y=0;y<COUNT;y++)for(let x=0;x<COUNT;x++){
-  const dx=Math.min(Math.abs(x-head.x),COUNT-Math.abs(x-head.x)),dy=Math.min(Math.abs(y-head.y),COUNT-Math.abs(y-head.y));
+  const xDist=Math.abs(x-head.x),yDist=Math.abs(y-head.y),dx=wallWrap?Math.min(xDist,COUNT-xDist):xDist,dy=wallWrap?Math.min(yDist,COUNT-yDist):yDist;
   if(dx+dy<=4)protectedCells.add(y*COUNT+x);
  }
- for(let i=1;i<=7;i++)protectedCells.add(((head.y+heading.y*i+COUNT*2)%COUNT)*COUNT+(head.x+heading.x*i+COUNT*2)%COUNT);
+ for(let i=1;i<=7;i++){const front=stepCell(head.x+heading.x*i,head.y+heading.y*i);if(front)protectedCells.add(key(front));}
  const shapes=[[[0,0],[1,0],[2,0]],[[0,0],[0,1],[0,2]],[[0,0],[1,0],[0,1],[1,1]],[[0,0],[0,1],[1,1]],[[0,0]]];
  const target=4+Math.floor(random()*5);let groups=0;
  for(let attempt=0;attempt<100&&groups<target;attempt++){
   const shape=shapes[Math.floor(random()*shapes.length)],x=Math.floor(random()*COUNT),y=Math.floor(random()*COUNT);
-  const cells=shape.map(([dx,dy])=>({x:(x+dx)%COUNT,y:(y+dy)%COUNT}));
-  if(cells.some(p=>protectedCells.has(key(p))||obstacleSet.has(key(p))))continue;
+  const cells=shape.map(([dx,dy])=>stepCell(x+dx,y+dy));
+  if(cells.some(p=>!p||protectedCells.has(key(p))||obstacleSet.has(key(p))))continue;
   const proposed=new Set([...obstacleSet,...cells.map(key)]);
   if(COUNT*COUNT-proposed.size-snake.length<8||!openCellsConnected(proposed,head))continue;
   obstacles.push(...cells);obstacleSet=proposed;groups++;
  }
 }
-function maximumSpeed(){return gameMode==='speedRun'?SPEED_RUN_MAX_SPEED:MAX_SPEED}
+function maximumSpeed(){return gameMode==='endless'?ENDLESS_MAX_SPEED:gameMode==='speedRun'?SPEED_RUN_MAX_SPEED:gameMode==='survivor'?SURVIVOR_MAX_SPEED:MAX_SPEED}
 function millis(){return 1000/speed}
 function update(){
  get('score').textContent=score;get('level').textContent=gameMode==='endless'?snake.length:level;get('best').textContent=best;
- get('wrap-status').textContent=gameMode==='endless'?'↑ Endless ascent':gameMode==='survivor'?(obstacles.length?'⚠ Obstacle level':'✓ Clear level'):'↔ Wall wrap ON';
+ get('wrap-status').textContent=gameMode==='endless'?'↑ Endless ascent':gameMode==='survivor'?(obstacles.length?'⚠ Obstacle level':'✓ Clear level'):(wallWrap?'↔ Wall wrap ON':'■ Wall wrap OFF');
  get('wrap-status').classList.toggle('hazard',obstacles.length>0);
  const shielded=gameMode==='speedRun'&&shieldRemaining>0;
  get('wrap-status').classList.toggle('shield',shielded);
@@ -398,8 +418,33 @@ function reset(){
  else if(gameMode==='speedRun'){food=null;fillSpeedFoods(true)}else food=place('apple');
  lastTime=performance.now();update();render();
 }
-function cancelTick(){if(timeout!==null){clearTimeout(timeout);timeout=null}}
-function schedule(){cancelTick();if(mode==='running')timeout=setTimeout(tick,millis())}
+let fastDue=null,fastBatch=false;
+function cancelTick(){if(timeout!==null){clearTimeout(timeout);timeout=null}fastDue=null}
+function armFastTick(){
+ // Advance by elapsed deadlines, not callback count: browsers clamp timers near 4 ms.
+ timeout=setTimeout(runFastTick,Math.max(4,Math.ceil(fastDue-performance.now())));
+}
+function runFastTick(){
+ timeout=null;
+ if(mode!=='running'||fastDue===null)return;
+ const now=performance.now();
+ fastBatch=true;
+ try{
+  let steps=0;
+  while(mode==='running'&&fastDue!==null&&now+1e-6>=fastDue&&steps<6){
+   tick();steps++;
+   if(fastDue!==null)fastDue+=millis();
+  }
+  if(fastDue!==null&&fastDue<now)fastDue=now+millis();
+ }finally{fastBatch=false}
+ if(mode==='running'&&fastDue!==null)armFastTick();
+}
+function schedule(){
+ if(fastBatch)return;
+ cancelTick();if(mode!=='running')return;
+ if(millis()<5){fastDue=performance.now()+millis();armFastTick();}
+ else timeout=setTimeout(tick,millis());
+}
 function start(){
  finishTouch();cancelTick();mode='running';reset();get('overlay').classList.remove('shield-recovery');get('overlay').classList.add('hidden');schedule();
 }
@@ -407,7 +452,7 @@ function announce(message){const el=get('toast');el.textContent=message;el.class
 function over(win){
  finishTouch();shieldRecovery=false;update();cancelTick();mode=win?'won':'over';
  get('overlay').classList.remove('shield-recovery');
- get('overlay-emoji').textContent=win?'🏆':'💥';get('overlay-title').textContent=win?'You win!':collisionCause==='obstacle'?'Obstacle hit!':'Game over';
+ get('overlay-emoji').textContent=win?'🏆':'💥';get('overlay-title').textContent=win?'You win!':collisionCause==='obstacle'?'Obstacle hit!':collisionCause==='wall'?'Wall hit!':'Game over';
  get('overlay-sub').textContent='Score: '+score+(gameMode==='endless'?' · Length: '+snake.length:' · Level: '+level);
  get('overlay-button').textContent='Play again ↻';get('overlay').classList.remove('hidden');
 }
@@ -446,7 +491,7 @@ function tickEndless(){
  snake=snake.map(p=>({x:p.x,y:p.y+1}));snake.unshift(head);
  if(eaten){
   endlessFoods=endlessFoods.filter(p=>p!==eaten);score+=1n;level=score+1n;
-  speed=Math.min(MAX_SPEED,speed+(eaten.type==='rat'?.36:.12));
+  speed=Math.min(maximumSpeed(),speed+(eaten.type==='rat'?.36:.12));
   announce(eaten.type==='rat'?'🐀 +1 SEGMENT · EXTRA SPEED':'🍎 +1 SEGMENT');saveBest();
  }else snake.pop();
  if(obstacles.some(p=>p.x===head.x&&p.y===head.y)){
@@ -468,7 +513,11 @@ function tick(){
  const now=performance.now(),elapsed=now-lastTime,safeElapsed=Number.isFinite(elapsed)?Math.max(0,elapsed):0;lastTime=now;
  if(gameMode==='speedRun')shieldRemaining=Math.max(0,shieldRemaining-safeElapsed);
  if(turns.length)heading=turns.shift();
- const head={x:(snake[0].x+heading.x+COUNT)%COUNT,y:(snake[0].y+heading.y+COUNT)%COUNT};
+ const head=stepCell(snake[0].x+heading.x,snake[0].y+heading.y);
+ if(!head){
+  if(gameMode==='speedRun'&&shieldRemaining>0){useShield();return}
+  collisionCause='wall';over(false);return;
+ }
  const eaten=gameMode==='speedRun'?speedFoods.find(p=>p.x===head.x&&p.y===head.y):(food&&head.x===food.x&&head.y===food.y?food:null);
  const growing=eaten&&eaten.type!=='blueBird';
  const collision=obstacleSet.has(head.y*COUNT+head.x)?'obstacle':(growing?snake:snake.slice(0,-1)).some(p=>p.x===head.x&&p.y===head.y)?'body':null;

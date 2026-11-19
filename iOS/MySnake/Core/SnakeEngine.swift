@@ -34,12 +34,14 @@ public enum GameMode: String, CaseIterable, Sendable {
         }
     }
     public var isPlayable: Bool { true }
-    public var maximumMovesPerSecond: Double { self == .speedRun ? 100 : 60 }
+    public var maximumMovesPerSecond: Double {
+        switch self { case .classic: return 60; case .survivor: return 120; case .speedRun: return 240; case .endless: return 300 }
+    }
     public var boardSize: Int {
         switch self { case .classic, .endless: return 20; case .survivor: return 28; case .speedRun: return 35 }
     }
 }
-public enum CollisionCause: Sendable { case body, obstacle }
+public enum CollisionCause: Sendable { case body, obstacle, wall }
 
 public enum GamePhase: Sendable { case ready, running, paused, gameOver, won }
 public enum GameEvent: Sendable { case none, moved, apple, rat, blueBird, shielded, damaged, collision, won }
@@ -76,6 +78,7 @@ public struct SnakeEngine {
     public private(set) var scrollRows = 0
     public private(set) var phase: GamePhase = .ready
     public private(set) var mode: GameMode = .classic
+    public private(set) var wallWrap = true
     public private(set) var obstacles: Set<Cell> = []
     public private(set) var collisionCause: CollisionCause?
     private var queuedTurns: [Direction] = []
@@ -98,7 +101,7 @@ public struct SnakeEngine {
          movesPerSecond: Double = SnakeEngine.initialMovesPerSecond,
          endlessFoods: [Food] = [], scrollRows: Int = 0, endlessSteering: Int = 0,
          speedRunFoods: [Food] = [], shieldSecondsRemaining: Double = 0,
-         shieldRecovery: Bool = false) {
+         shieldRecovery: Bool = false, wallWrap: Bool = true) {
         precondition(boardSize >= 4 && boardSize <= 100)
         precondition(!body.isEmpty && Set(body).count == body.count)
         precondition(body.allSatisfy { (0..<boardSize).contains($0.x) && $0.y >= 0 && (mode == .endless || $0.y < boardSize) })
@@ -112,6 +115,7 @@ public struct SnakeEngine {
         self.applesEaten = applesEaten
         self.phase = phase
         self.mode = mode
+        self.wallWrap = wallWrap
         self.obstacles = obstacles
         self.movesPerSecond = min(mode.maximumMovesPerSecond, max(0.1, movesPerSecond))
         self.endlessFoods = endlessFoods
@@ -134,8 +138,9 @@ public struct SnakeEngine {
     public var obstacleProbability: Double { Self.obstacleProbability(forLevel: min(applesEaten, 28) + 1) }
     public var ratChance: Double { mode == .speedRun ? rules.speedRunRatChance : rules.ratChance }
 
-    public mutating func start<R: RandomNumberGenerator>(mode: GameMode = .classic, using rng: inout R) {
+    public mutating func start<R: RandomNumberGenerator>(mode: GameMode = .classic, wallWrap: Bool = true, using rng: inout R) {
         self.mode = mode
+        self.wallWrap = wallWrap
         boardSize = mode.boardSize
         obstacles.removeAll()
         collisionCause = nil
@@ -207,26 +212,16 @@ public struct SnakeEngine {
         }
         if !queuedTurns.isEmpty { direction = queuedTurns.removeFirst() }
         let head = body[0]
-        let next = Cell(x: (head.x + direction.dx + boardSize) % boardSize,
-                        y: (head.y + direction.dy + boardSize) % boardSize)
+        guard let next = boardCell(x: head.x + direction.dx, y: head.y + direction.dy) else {
+            return resolveCollision(.wall)
+        }
         let eaten = mode == .speedRun ? speedRunFoods.first(where: { $0.cell == next })
             : food.flatMap({ $0.cell == next ? $0 : nil })
         let grows = eaten != nil && eaten?.kind != .blueBird
         // Moving into the old tail is legal only when that tail vacates this tick.
         let occupiedCount = body.count - (grows ? 0 : 1)
         if obstacles.contains(next) || body.prefix(occupiedCount).contains(next) {
-            if mode == .speedRun && shieldSecondsRemaining > 0 {
-                shieldSecondsRemaining = 0
-                shieldRecovery = true
-                collisionCause = nil
-                phase = .paused
-                queuedTurns.removeAll()
-                return .shielded
-            }
-            collisionCause = obstacles.contains(next) ? .obstacle : .body
-            phase = .gameOver
-            queuedTurns.removeAll()
-            return .collision
+            return resolveCollision(obstacles.contains(next) ? .obstacle : .body)
         }
         body.insert(next, at: 0)
         if !grows { body.removeLast() }
@@ -275,14 +270,14 @@ public struct SnakeEngine {
         var protected = Set(body)
         if let food { protected.insert(food.cell) }
         for y in 0..<boardSize { for x in 0..<boardSize {
-            let dx = min(abs(x - head.x), boardSize - abs(x - head.x))
-            let dy = min(abs(y - head.y), boardSize - abs(y - head.y))
+            let xDistance = abs(x - head.x), yDistance = abs(y - head.y)
+            let dx = wallWrap ? min(xDistance, boardSize - xDistance) : xDistance
+            let dy = wallWrap ? min(yDistance, boardSize - yDistance) : yDistance
             if dx + dy <= 4 { protected.insert(Cell(x: x, y: y)) }
         } }
         // Give the current course extra room at high speeds.
         for step in 1...7 {
-            protected.insert(Cell(x: (head.x + direction.dx * step + boardSize * 2) % boardSize,
-                                  y: (head.y + direction.dy * step + boardSize * 2) % boardSize))
+            if let front = boardCell(x: head.x + direction.dx * step, y: head.y + direction.dy * step) { protected.insert(front) }
         }
         let shapes: [[Cell]] = [
             [Cell(x:0,y:0), Cell(x:1,y:0), Cell(x:2,y:0)],
@@ -298,8 +293,8 @@ public struct SnakeEngine {
             let shape = shapes[Int.random(in: 0..<shapes.count, using: &rng)]
             let x = Int.random(in: 0..<boardSize, using: &rng)
             let y = Int.random(in: 0..<boardSize, using: &rng)
-            let cells = Set(shape.map { Cell(x: (x + $0.x) % boardSize, y: (y + $0.y) % boardSize) })
-            guard cells.isDisjoint(with: protected), cells.isDisjoint(with: obstacles) else { continue }
+            let cells = Set(shape.compactMap { boardCell(x: x + $0.x, y: y + $0.y) })
+            guard cells.count == shape.count, cells.isDisjoint(with: protected), cells.isDisjoint(with: obstacles) else { continue }
             let proposed = obstacles.union(cells)
             // On a crowded board, fall back to a clear level rather than force a trap.
             guard boardSize * boardSize - proposed.count - body.count >= 8,
@@ -309,6 +304,26 @@ public struct SnakeEngine {
         }
     }
 
+    private func boardCell(x: Int, y: Int) -> Cell? {
+        if wallWrap { return Cell(x: (x + boardSize * 2) % boardSize, y: (y + boardSize * 2) % boardSize) }
+        guard (0..<boardSize).contains(x), (0..<boardSize).contains(y) else { return nil }
+        return Cell(x: x, y: y)
+    }
+
+    private mutating func resolveCollision(_ cause: CollisionCause) -> GameEvent {
+        queuedTurns.removeAll()
+        if mode == .speedRun && shieldSecondsRemaining > 0 {
+            shieldSecondsRemaining = 0
+            shieldRecovery = true
+            collisionCause = nil
+            phase = .paused
+            return .shielded
+        }
+        collisionCause = cause
+        phase = .gameOver
+        return .collision
+    }
+
     private func allOpenCellsConnected(blocked: Set<Cell>, from start: Cell) -> Bool {
         var visited: Set<Cell> = [start]
         var pending = [start]
@@ -316,8 +331,7 @@ public struct SnakeEngine {
         while cursor < pending.count {
             let here = pending[cursor]; cursor += 1
             for d in Direction.allCases {
-                let next = Cell(x: (here.x + d.dx + boardSize) % boardSize,
-                                y: (here.y + d.dy + boardSize) % boardSize)
+                guard let next = boardCell(x: here.x + d.dx, y: here.y + d.dy) else { continue }
                 if !blocked.contains(next), visited.insert(next).inserted { pending.append(next) }
             }
         }

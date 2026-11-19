@@ -158,13 +158,43 @@ final class SnakeEngineTests: XCTestCase {
 
     func testEachModeHasItsOwnSpeedCapAndFixtureClamp() {
         for mode in GameMode.allCases {
-            let cap = mode == .speedRun ? 100.0 : 60.0
+            let caps: [GameMode: Double] = [.classic: 60, .survivor: 120, .speedRun: 240, .endless: 300]
+            let cap = caps[mode]!
             XCTAssertEqual(mode.maximumMovesPerSecond, cap)
             let game = SnakeEngine(body: [Cell(x: 3,y: 3)], food: nil,
                                    mode: mode, movesPerSecond: 1000)
             XCTAssertEqual(game.movesPerSecond, cap)
             XCTAssertEqual(game.movementInterval, 1 / cap, accuracy: 0.000001)
         }
+    }
+
+    func testWallWrapSettingControlsEveryEdgeInBoardModes() {
+        let edges: [(Cell, Direction, Cell)] = [
+            (Cell(x: 0,y: 3), .left, Cell(x: 19,y: 3)),
+            (Cell(x: 19,y: 3), .right, Cell(x: 0,y: 3)),
+            (Cell(x: 3,y: 0), .up, Cell(x: 3,y: 19)),
+            (Cell(x: 3,y: 19), .down, Cell(x: 3,y: 0))
+        ]
+        var rng = SeededRandom()
+        for mode in [GameMode.classic, .survivor, .speedRun] {
+            for (head, direction, wrapped) in edges {
+                for wrap in [true, false] {
+                    var game = SnakeEngine(body: [head], direction: direction, food: nil, mode: mode, wallWrap: wrap)
+                    XCTAssertEqual(game.tick(elapsed: 0.01, using: &rng), wrap ? .moved : .collision)
+                    XCTAssertEqual(game.body.first, wrap ? wrapped : head)
+                    XCTAssertEqual(game.collisionCause, wrap ? nil : .wall)
+                }
+            }
+        }
+    }
+
+    func testSurvivorRatStopsAt120WithoutLevelAdvance() {
+        var game = SnakeEngine(body: [Cell(x: 3,y: 3)], food: Food(cell: Cell(x: 4,y: 3), kind: .rat),
+                               applesEaten: 3, mode: .survivor, movesPerSecond: 25)
+        var rng = SeededRandom()
+        XCTAssertEqual(game.tick(elapsed: 0.01, using: &rng), .rat)
+        XCTAssertEqual(game.movesPerSecond, 120)
+        XCTAssertEqual(game.level.digits, "4")
     }
 
     func testMovingIntoVacatingTailIsAllowed() {

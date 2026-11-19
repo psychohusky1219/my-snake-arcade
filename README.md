@@ -18,7 +18,7 @@ choices stay on the device; browser and native records remain separate.
 Classic, Survivor and Speed Run start with three segments. Apples add one point,
 one segment, one level and a small speed increment. Rats multiply current score
 and current speed by five and add one segment, but do not change level. Speed
-caps at 60 moves/sec, except Speed Run caps at 100 moves/sec in both editions. Each edition retains its original opening and apple pace.
+caps at 60 moves/sec in Classic, 120 in Survivor, 240 in Speed Run, and 300 in Endless in both editions. Each edition retains its original opening and apple pace. Choose Wall Wrap on the start screen for Classic, Survivor, or Speed Run. Endless retains its scrolling edges.
 In Classic/Survivor, rats become eligible after three apples, with an 18% chance
 and stay until eaten in both editions. Speed Run rats are available immediately
 and stay on the board until eaten.
